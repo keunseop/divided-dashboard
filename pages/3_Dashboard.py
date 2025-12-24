@@ -30,6 +30,10 @@ if not rows:
     st.info("데이터가 없습니다. 먼저 CSV Import를 해주세요.")
     st.stop()
 
+
+def fmt_krw(x):
+    return "N/A" if x is None else f"{x:,.0f}원"
+
 df = pd.DataFrame(rows, columns=["payDate", "year", "month", "ticker", "value"])
 df = df.dropna(subset=["value"])
 df["payDate"] = pd.to_datetime(df["payDate"])
@@ -40,8 +44,8 @@ prev_year = df[df["year"] == this_year - 1]["value"].sum()
 yoy = (ytd / prev_year - 1) * 100 if prev_year > 0 else None
 
 c1, c2, c3 = st.columns(3)
-c1.metric("올해 누적", f"{ytd:,.0f}")
-c2.metric("작년 총액", f"{prev_year:,.0f}")
+c1.metric("올해 누적", fmt_krw(ytd))
+c2.metric("작년 총액", fmt_krw(prev_year))
 c3.metric("YoY(참고)", f"{yoy:,.1f}%" if yoy is not None else "N/A")
 
 st.divider()

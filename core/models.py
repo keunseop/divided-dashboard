@@ -74,5 +74,8 @@ class DividendEvent(Base):
 class TickerMaster(Base):
     __tablename__ = "ticker_master"
 
-    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ticker: Mapped[str] = mapped_column(String(32), primary_key=True)
     name_ko: Mapped[str] = mapped_column(String(128), nullable=False)
+
+    market: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
