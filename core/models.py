@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import enum
+from datetime import date, datetime
+
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class AccountType(str, enum.Enum):
+    TAXABLE = "TAXABLE"  # 일반
+    ISA = "ISA"          # ISA
+
+
+class DividendSource(str, enum.Enum):
+    EXCEL = "excel"
+    ALIMTALK = "alimtalk"
+    MANUAL = "manual"
+
+
+class DividendEvent(Base):
+    __tablename__ = "dividend_events"
+    __table_args__ = (
+        UniqueConstraint("row_id", name="uq_dividend_row_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    row_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    pay_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    month: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+
+    ticker: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="KRW")
+    fx_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    gross_dividend: Mapped[float] = mapped_column(Float, nullable=False)  # 세전
+    tax: Mapped[float | None] = mapped_column(Float, nullable=True)       # 세금(없으면 null)
+    net_dividend: Mapped[float | None] = mapped_column(Float, nullable=True)  # 세후(없으면 null)
+
+    krw_gross: Mapped[float | None] = mapped_column(Float, nullable=True)
+    krw_net: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    account_type: Mapped[AccountType] = mapped_column(
+        Enum(AccountType), nullable=False, default=AccountType.TAXABLE
+    )
+
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default=DividendSource.EXCEL.value)
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    raw_text: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class TickerMaster(Base):
+    __tablename__ = "ticker_master"
+
+    ticker: Mapped[str] = mapped_column(String(16), primary_key=True)
+    name_ko: Mapped[str] = mapped_column(String(128), nullable=False)
