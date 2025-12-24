@@ -1,11 +1,11 @@
 # Tasks
 
 ## P0 (Now)
-- [ ] Add thousand-separator KRW formatting in Dashboard metrics and tables.
-- [ ] Add Missing Tickers page:
+- [x] Add thousand-separator KRW formatting in Dashboard metrics and tables.
+- [x] Add Missing Tickers page:
   - Find tickers present in DividendEvent but missing in TickerMaster.
   - Provide CSV download for quick completion.
-- [ ] Ensure ticker normalization (strip + uppercase) consistently in both dividend importer and ticker master importer.
+- [x] Ensure ticker normalization (strip + uppercase) consistently in both dividend importer and ticker master importer.
 
 ## P1 (Next)
 - [ ] Add TickerMaster optional fields (market/currency) + importer support.

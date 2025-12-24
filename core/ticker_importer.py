@@ -6,6 +6,7 @@ import pandas as pd
 from sqlalchemy import select
 
 from core.models import TickerMaster
+from core.utils import normalize_ticker
 
 
 @dataclass
@@ -21,7 +22,7 @@ def read_ticker_master_csv(uploaded_file) -> pd.DataFrame:
     if missing:
         raise ValueError(f"ticker_master.csv에 필요한 컬럼이 없습니다: {missing}")
 
-    df["ticker"] = df["ticker"].astype(str).str.strip().str.upper()
+    df["ticker"] = df["ticker"].map(normalize_ticker)
     df["name_ko"] = df["name_ko"].astype(str).str.strip()
 
     if (df["ticker"] == "").any():

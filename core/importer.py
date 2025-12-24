@@ -7,6 +7,7 @@ import pandas as pd
 from sqlalchemy import select, update
 
 from core.models import AccountType, DividendEvent
+from core.utils import normalize_ticker
 
 
 # ✅ 네 CSV 헤더(한글) -> 내부 표준명 매핑
@@ -112,9 +113,7 @@ def read_and_normalize_csv(uploaded_file) -> pd.DataFrame:
 
     # 필수값 검증
     df["rowId"] = df["rowId"].astype(str).str.strip()
-    df["ticker"] = df["ticker"].astype(str).str.strip()
-    # 해외 티커는 보통 대문자로 관리하는 게 편함(원하면)
-    df["ticker"] = df["ticker"].str.upper()
+    df["ticker"] = df["ticker"].map(normalize_ticker)
 
     if df["grossDividend"].isna().any():
         raise ValueError("배당금(grossDividend)에 빈 값이 있습니다.")

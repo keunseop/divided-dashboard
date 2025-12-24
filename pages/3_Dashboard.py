@@ -3,28 +3,41 @@ import pandas as pd
 from sqlalchemy import select
 
 from core.db import db_session
-from core.models import DividendEvent, AccountType
+from core.models import DividendEvent, AccountType, TickerMaster
 
 st.title("3) Dashboard")
 
-metric = st.selectbox("기준", ["KRW 세전(krwGross)", "KRW 세후(krwNet)"])
-account_filter = st.selectbox("계좌", ["ALL", AccountType.TAXABLE.value, AccountType.ISA.value])
+metric = st.selectbox(
+    "기준",
+    ["KRW 세전(krwGross)", "KRW 세후(krwNet)"],
+    key="dashboard_metric",
+)
+account_filter = st.selectbox(
+    "계좌",
+    ["ALL", AccountType.TAXABLE.value, AccountType.ISA.value],
+    key="dashboard_account",
+)
 
 col = "krw_gross" if metric.startswith("KRW 세전") else "krw_net"
 
 with db_session() as s:
-    q = select(
-        DividendEvent.pay_date,
-        DividendEvent.year,
-        DividendEvent.month,
-        DividendEvent.ticker,
-        getattr(DividendEvent, col).label("value"),
-    ).where(DividendEvent.archived == False)  # noqa: E712
+    q = (
+        select(
+            DividendEvent.pay_date,
+            DividendEvent.year,
+            DividendEvent.month,
+            DividendEvent.ticker,
+            getattr(DividendEvent, col).label("value"),
+        ).where(DividendEvent.archived == False)
+    )  # noqa: E712
 
     if account_filter != "ALL":
         q = q.where(DividendEvent.account_type == AccountType(account_filter))
 
     rows = s.execute(q).all()
+    ticker_name_map = dict(
+        s.execute(select(TickerMaster.ticker, TickerMaster.name_ko)).all()
+    )
 
 if not rows:
     st.info("데이터가 없습니다. 먼저 CSV Import를 해주세요.")
@@ -33,6 +46,7 @@ if not rows:
 
 def fmt_krw(x):
     return "N/A" if x is None else f"{x:,.0f}원"
+
 
 df = pd.DataFrame(rows, columns=["payDate", "year", "month", "ticker", "value"])
 df = df.dropna(subset=["value"])
@@ -59,6 +73,14 @@ monthly = df.groupby("ym", as_index=False)["value"].sum().sort_values("ym")
 st.subheader("월별 배당 추이")
 st.line_chart(monthly, x="ym", y="value")
 
-top = df.groupby("ticker", as_index=False)["value"].sum().sort_values("value", ascending=False).head(15)
+top = (
+    df.groupby("ticker", as_index=False)["value"]
+    .sum()
+    .sort_values("value", ascending=False)
+    .head(15)
+)
+top["name_ko"] = top["ticker"].map(lambda t: ticker_name_map.get(t, "미등록"))
 st.subheader("종목 TOP 15")
-st.dataframe(top, use_container_width=True)
+top_display = top[["ticker", "name_ko", "value"]].copy()
+top_display["value"] = top_display["value"].map(lambda v: f"{v:,.0f}원")
+st.dataframe(top_display, use_container_width=True)

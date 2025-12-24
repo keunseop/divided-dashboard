@@ -4,18 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="프로젝트 초기 구성">
-      <change afterPath="$PROJECT_DIR$/PROJECT_RULES.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/TASKS.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/core/ticker_importer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pages/4_Ticker_Master.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pages/5_Missing_Tickers.py" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="ticker 추가 완료">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/importer.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/importer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/2_Dividends_Table.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/2_Dividends_Table.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pages/3_Dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/3_Dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pages/5_Missing_Tickers.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/5_Missing_Tickers.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -72,11 +64,20 @@
       <option name="project" value="LOCAL" />
       <updated>1766590071623</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="ticker 추가 완료">
+      <option name="closed" value="true" />
+      <created>1766593379167</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1766593379167</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="프로젝트 초기 구성" />
-    <option name="LAST_COMMIT_MESSAGE" value="프로젝트 초기 구성" />
+    <MESSAGE value="ticker 추가 완료" />
+    <option name="LAST_COMMIT_MESSAGE" value="ticker 추가 완료" />
   </component>
 </project>
