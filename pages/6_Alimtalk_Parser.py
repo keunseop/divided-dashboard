@@ -10,7 +10,7 @@ from core.alimtalk_parser import (
     upsert_alimtalk_events,
 )
 from core.db import db_session
-from core.fx import fetch_fx_rate
+from core.fx import fetch_fx_rate_frankfurter
 from core.models import AccountType, TickerMaster
 from core.utils import normalize_ticker
 
@@ -183,7 +183,7 @@ if rows:
                 if not pay_date:
                     errors.append(f"{idx + 1}행: 지급일 누락")
                     continue
-                rate = fetch_fx_rate(currency, "KRW", pay_date)
+                rate = fetch_fx_rate_frankfurter(currency, "KRW", pay_date)
                 if rate is None:
                     errors.append(f"{idx + 1}행: {currency} 환율 조회 실패")
                     continue

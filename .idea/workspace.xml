@@ -4,15 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="ignore">
-      <change afterPath="$PROJECT_DIR$/alimtalk_sample.txt" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="알림톡 파서 추가">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/TASKS.md" beforeDir="false" afterPath="$PROJECT_DIR$/TASKS.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/ticker_importer.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ticker_importer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/dividends.sqlite3" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/3_Dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/3_Dashboard.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/4_Ticker_Master.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/4_Ticker_Master.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/fx.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/fx.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pages/6_Alimtalk_Parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/6_Alimtalk_Parser.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -29,6 +25,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "keunseop"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/keunseop/divided-dashboard.git",
+    "accountId": "18cac57f-86f2-4e25-bec6-3e3db102f14b"
+  }
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 5
 }</component>
@@ -101,7 +109,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766594882307</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="알림톡 파서 추가">
+      <option name="closed" value="true" />
+      <created>1766630120967</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1766630120967</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -110,6 +126,7 @@
     <MESSAGE value="원화 표시 완료, missing ticker 추가 기능 완료" />
     <MESSAGE value="workspace 파일 추가" />
     <MESSAGE value="ignore" />
-    <option name="LAST_COMMIT_MESSAGE" value="ignore" />
+    <MESSAGE value="알림톡 파서 추가" />
+    <option name="LAST_COMMIT_MESSAGE" value="알림톡 파서 추가" />
   </component>
 </project>
