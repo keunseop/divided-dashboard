@@ -25,6 +25,18 @@ def read_ticker_master_csv(uploaded_file) -> pd.DataFrame:
     df["ticker"] = df["ticker"].map(normalize_ticker)
     df["name_ko"] = df["name_ko"].astype(str).str.strip()
 
+    optional_cols = ["market", "currency"]
+    for col in optional_cols:
+        if col in df.columns:
+            df[col] = df[col].fillna("").astype(str).str.strip()
+
+    if "currency" in df.columns:
+        df["currency"] = df["currency"].str.upper()
+
+    for col in optional_cols:
+        if col in df.columns:
+            df[col] = df[col].replace("", None)
+
     if (df["ticker"] == "").any():
         raise ValueError("ticker 컬럼이 비어있는 행이 있습니다.")
     if (df["name_ko"] == "").any():
@@ -42,13 +54,28 @@ def upsert_ticker_master(session, df: pd.DataFrame) -> TickerImportResult:
     for _, row in df.iterrows():
         t = row["ticker"]
         n = row["name_ko"]
+        market = row.get("market")
+        currency = row.get("currency")
         if t in existing_set:
             obj = session.get(TickerMaster, t)
-            if obj.name_ko != n:
+            if (
+                obj.name_ko != n
+                or obj.market != market
+                or obj.currency != currency
+            ):
                 obj.name_ko = n
+                obj.market = market
+                obj.currency = currency
                 updated += 1
         else:
-            session.add(TickerMaster(ticker=t, name_ko=n))
+            session.add(
+                TickerMaster(
+                    ticker=t,
+                    name_ko=n,
+                    market=market,
+                    currency=currency,
+                )
+            )
             inserted += 1
 
     return TickerImportResult(inserted=inserted, updated=updated)

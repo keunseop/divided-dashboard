@@ -4,9 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="workspace 파일 추가">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="ignore">
+      <change afterPath="$PROJECT_DIR$/alimtalk_sample.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TASKS.md" beforeDir="false" afterPath="$PROJECT_DIR$/TASKS.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/ticker_importer.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ticker_importer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/dividends.sqlite3" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pages/3_Dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/3_Dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pages/4_Ticker_Master.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/4_Ticker_Master.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,13 +38,13 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -87,7 +93,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766594612932</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="ignore">
+      <option name="closed" value="true" />
+      <created>1766594882307</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1766594882307</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -95,6 +109,7 @@
     <MESSAGE value="ticker 추가 완료" />
     <MESSAGE value="원화 표시 완료, missing ticker 추가 기능 완료" />
     <MESSAGE value="workspace 파일 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="workspace 파일 추가" />
+    <MESSAGE value="ignore" />
+    <option name="LAST_COMMIT_MESSAGE" value="ignore" />
   </component>
 </project>

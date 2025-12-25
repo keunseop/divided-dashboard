@@ -8,10 +8,9 @@
 - [x] Ensure ticker normalization (strip + uppercase) consistently in both dividend importer and ticker master importer.
 
 ## P1 (Next)
-- [ ] Add TickerMaster optional fields (market/currency) + importer support.
-- [ ] Add filters in Dashboard:
+- [x] Add TickerMaster optional fields (market/currency) + importer support.
+- [x] Add filters in Dashboard:
   - accountType (ALL/TAXABLE/ISA)
-  - metric toggle: krw_gross vs krw_net (if available)
 
 ## P2 (Later)
 - [ ] Alimtalk parser module:

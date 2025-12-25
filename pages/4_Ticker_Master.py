@@ -7,7 +7,10 @@ from core.ticker_importer import read_ticker_master_csv, upsert_ticker_master
 
 st.title("4) Ticker Master")
 
-uploaded = st.file_uploader("ticker_master.csv 업로드 (ticker,name_ko)", type=["csv"])
+uploaded = st.file_uploader(
+    "ticker_master.csv 업로드 (필수: ticker,name_ko | 선택: market,currency)",
+    type=["csv"],
+)
 
 if uploaded is not None:
     try:
@@ -29,6 +32,14 @@ st.subheader("현재 등록된 Ticker Master (상위 2000개)")
 
 with db_session() as s:
     rows = s.execute(select(TickerMaster).limit(2000)).scalars().all()
-    data = [{"ticker": r.ticker, "name_ko": r.name_ko} for r in rows]
+    data = [
+        {
+            "ticker": r.ticker,
+            "name_ko": r.name_ko,
+            "market": r.market,
+            "currency": r.currency,
+        }
+        for r in rows
+    ]
 
 st.dataframe(data, use_container_width=True)

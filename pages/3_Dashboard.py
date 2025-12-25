@@ -7,16 +7,22 @@ from core.models import DividendEvent, AccountType, TickerMaster
 
 st.title("3) Dashboard")
 
-metric = st.selectbox(
-    "기준",
-    ["KRW 세전(krwGross)", "KRW 세후(krwNet)"],
-    key="dashboard_metric",
-)
-account_filter = st.selectbox(
-    "계좌",
-    ["ALL", AccountType.TAXABLE.value, AccountType.ISA.value],
-    key="dashboard_account",
-)
+filter_col, account_col = st.columns([3, 1.5])
+with filter_col:
+    metric = st.selectbox(
+        "기준",
+        ["KRW 세전(krwGross)", "KRW 세후(krwNet)"],
+        key="dashboard_metric",
+    )
+
+account_options = ["ALL"] + [acct.value for acct in AccountType]
+with account_col:
+    account_filter = st.selectbox(
+        "계좌",
+        account_options,
+        key="dashboard_account",
+        help="필요 시 계좌 유형별로 배당 현황을 제한할 수 있습니다.",
+    )
 
 col = "krw_gross" if metric.startswith("KRW 세전") else "krw_net"
 
