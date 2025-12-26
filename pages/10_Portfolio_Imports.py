@@ -142,13 +142,24 @@ else:
     df = pd.DataFrame(
         [
             {
-                "Ticker": pos.ticker,
+                "Symbol": f"{pos.ticker} ({pos.name_ko})" if pos.name_ko else pos.ticker,
                 "Account": pos.account_type.value,
-                "Quantity": f"{pos.quantity:,.4f}",
-                "Avg Buy Price (KRW)": f"{pos.avg_buy_price_krw:,.2f}",
-                "Cost Basis (KRW)": f"{pos.total_cost_krw:,.0f}",
+                "Quantity": pos.quantity,
+                "Avg Buy Price (KRW)": pos.avg_buy_price_krw,
+                "Cost Basis (KRW)": pos.total_cost_krw,
             }
             for pos in positions
         ]
     )
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Symbol": st.column_config.TextColumn("종목"),
+            "Account": st.column_config.TextColumn("계좌"),
+            "Quantity": st.column_config.NumberColumn("수량", format="%.4f"),
+            "Avg Buy Price (KRW)": st.column_config.NumberColumn("평균 매입가 (KRW)", format="%.2f"),
+            "Cost Basis (KRW)": st.column_config.NumberColumn("Cost Basis (KRW)", format="%.0f"),
+        },
+    )

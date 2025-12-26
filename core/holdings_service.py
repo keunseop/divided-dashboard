@@ -6,12 +6,13 @@ from typing import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core.models import AccountType, HoldingPosition
+from core.models import AccountType, HoldingPosition, TickerMaster
 
 
 @dataclass
 class HoldingPositionView:
     ticker: str
+    name_ko: str | None
     account_type: AccountType
     quantity: float
     avg_buy_price_krw: float
@@ -24,24 +25,32 @@ def get_positions(
     account_type: AccountType | None = None,
     tickers: Sequence[str] | None = None,
 ) -> list[HoldingPositionView]:
-    stmt = select(HoldingPosition).order_by(HoldingPosition.account_type, HoldingPosition.ticker)
+    stmt = (
+        select(HoldingPosition, TickerMaster.name_ko)
+        .join(TickerMaster, TickerMaster.ticker == HoldingPosition.ticker, isouter=True)
+        .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
+    )
     if account_type:
         stmt = stmt.where(HoldingPosition.account_type == account_type)
     if tickers:
         stmt = stmt.where(HoldingPosition.ticker.in_([t.upper() for t in tickers]))
 
-    rows = session.execute(stmt).scalars().all()
-    return [
-        HoldingPositionView(
-            ticker=row.ticker,
-            account_type=row.account_type,
-            quantity=row.quantity,
-            avg_buy_price_krw=row.avg_buy_price_krw,
-            total_cost_krw=row.total_cost_krw,
+    rows = session.execute(stmt).all()
+    views: list[HoldingPositionView] = []
+    for position, name_ko in rows:
+        if position.quantity <= 0:
+            continue
+        views.append(
+            HoldingPositionView(
+                ticker=position.ticker,
+                name_ko=name_ko,
+                account_type=position.account_type,
+                quantity=position.quantity,
+                avg_buy_price_krw=position.avg_buy_price_krw,
+                total_cost_krw=position.total_cost_krw,
+            )
         )
-        for row in rows
-        if row.quantity > 0
-    ]
+    return views
 
 
 def apply_buy(

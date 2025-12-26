@@ -39,6 +39,7 @@ POSITIONS_COLUMN_MAP = {
     "수량": "quantity",
     "avg_buy_price_krw": "avg_buy_price_krw",
     "평균매입가": "avg_buy_price_krw",
+    "평균매입가(원)": "avg_buy_price_krw",
     "평균매입가원": "avg_buy_price_krw",
     "note": "note",
     "비고": "note",
@@ -80,7 +81,12 @@ def _to_float(value) -> float | None:
         cleaned = value.strip()
         if cleaned == "" or cleaned == "-":
             return None
-        cleaned = cleaned.replace(",", "")
+        cleaned = (
+            cleaned.replace(",", "")
+            .replace("₩", "")
+            .replace("KRW", "")
+            .strip()
+        )
         try:
             return float(cleaned)
         except ValueError:
@@ -124,8 +130,15 @@ def read_holding_positions_csv(uploaded_file) -> pd.DataFrame:
     if df["avg_buy_price_krw"].isna().any():
         raise ValueError("평균 매입가(원)를 숫자로 변환할 수 없는 행이 있습니다.")
 
-    df["note"] = df.get("note", "").fillna("").map(lambda s: s.strip() or None)
-    df["source"] = df.get("source", "").fillna("").map(lambda s: s.strip() or "manual")
+    if "note" in df.columns:
+        df["note"] = df["note"].fillna("").map(lambda s: s.strip() or None)
+    else:
+        df["note"] = None
+
+    if "source" in df.columns:
+        df["source"] = df["source"].fillna("").map(lambda s: s.strip() or "manual")
+    else:
+        df["source"] = "manual"
 
     return df
 
@@ -185,8 +198,15 @@ def read_portfolio_snapshots_csv(uploaded_file) -> pd.DataFrame:
             df[column] = df[column].map(_to_float)
         else:
             df[column] = None
-    df["note"] = df.get("note", "").fillna("").map(lambda s: s.strip() or None)
-    df["source"] = df.get("source", "").fillna("").map(lambda s: s.strip() or "excel")
+    if "note" in df.columns:
+        df["note"] = df["note"].fillna("").map(lambda s: s.strip() or None)
+    else:
+        df["note"] = None
+
+    if "source" in df.columns:
+        df["source"] = df["source"].fillna("").map(lambda s: s.strip() or "excel")
+    else:
+        df["source"] = "excel"
 
     return df
 
