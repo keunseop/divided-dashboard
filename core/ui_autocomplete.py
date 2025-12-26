@@ -32,6 +32,7 @@ def render_ticker_autocomplete(
     key: str,
     help_text: str | None = None,
     limit: int = 20,
+    show_input: bool = True,
 ) -> TickerSuggestion | None:
     """Render an autocomplete widget for ticker suggestions.
 
@@ -59,14 +60,15 @@ def render_ticker_autocomplete(
 
     # Fallback: use selectbox based on the existing query input.
     stripped = (query or "").strip()
-    fallback_value = st.text_input(
-        f"{label} 검색",
-        value=stripped,
-        key=f"{key}_fallback_input",
-        placeholder="종목명 또는 코드를 입력해 주세요.",
-        help=help_text,
-    )
-    stripped = fallback_value.strip()
+    if not stripped and show_input:
+        fallback_value = st.text_input(
+            f"{label} 검색",
+            value="",
+            key=f"{key}_fallback_input",
+            placeholder="종목명 또는 코드를 입력해 주세요.",
+            help=help_text,
+        )
+        stripped = fallback_value.strip()
     if not stripped:
         return None
 

@@ -39,19 +39,20 @@ history_years = st.slider(
 )
 force_refresh = st.checkbox("강제 재조회", value=False, help="이미 조회했던 종목이라도 DART API를 다시 호출합니다.")
 
+manual_ticker = st.text_input(
+    "티커 입력",
+    value="",
+    placeholder="예: 삼성전자 또는 005930",
+    help="국내 종목은 자동완성에서 선택하고, 해외 등 미등록 종목은 직접 입력하세요.",
+)
+
 selected_candidate = render_ticker_autocomplete(
-    query="",
+    query=manual_ticker,
     label="자동완성 (국내 종목)",
     key="dart_single_autocomplete",
     help_text="입력 후 원하는 국내 종목을 선택하면 자동으로 적용됩니다.",
     limit=25,
-)
-
-manual_ticker = st.text_input(
-    "직접 티커 입력 (선택)",
-    value="",
-    placeholder="예: 005930",
-    help="Ticker Master에 등록되지 않은 종목을 조회하려면 직접 입력하세요.",
+    show_input=False,
 )
 
 if st.button("조회", use_container_width=True) is False:

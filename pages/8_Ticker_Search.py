@@ -22,18 +22,20 @@ st.caption(
     "미국 종목은 yfinance를 사용하며, 한국 종목은 DART/로컬 데이터를 사용합니다."
 )
 
-selected_candidate = render_ticker_autocomplete(
-    label="자동완성 (국내 종목)",
-    key="ticker_search_autocomplete",
-    help_text="국내 종목명을 입력하면 아래 드롭다운에서 바로 선택할 수 있습니다. 해외 종목은 직접 입력을 사용하세요.",
-    limit=20,
+manual_ticker = st.text_input(
+    "티커 입력",
+    value="",
+    placeholder="예: MMM 또는 삼성전자",
+    help="국내 종목은 아래 자동완성에서 선택할 수 있습니다. 해외 종목은 직접 입력하세요.",
 )
 
-manual_ticker = st.text_input(
-    "직접 티커 입력 (선택)",
-    value="",
-    placeholder="예: MMM",
-    help="해외 종목 등 자동완성 대상이 아닐 경우 직접 입력하세요.",
+selected_candidate = render_ticker_autocomplete(
+    query=manual_ticker,
+    label="자동완성 (국내 종목)",
+    key="ticker_search_autocomplete",
+    help_text="국내 종목명을 입력하면 추천 목록이 표시됩니다.",
+    limit=20,
+    show_input=False,
 )
 
 market_option = st.selectbox(

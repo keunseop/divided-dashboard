@@ -80,7 +80,7 @@ with st.form("alimtalk_parse_form"):
     fallback_date = st.date_input("기본 지급일 (해외/미기재용)", value=date.today())
     default_acct = st.selectbox(
         "기본 계좌 구분",
-        options=[acct.value for acct in AccountType],
+        options=ACCOUNT_OPTIONS,
         index=0,
         help="필요 시 아래 테이블에서 개별 수정 가능합니다.",
     )
@@ -156,7 +156,7 @@ if rows:
             "tax": st.column_config.NumberColumn("원통화 세금", format="%.4f"),
             "accountType": st.column_config.SelectboxColumn(
                 "계좌 구분",
-                options=[acct.value for acct in AccountType],
+                options=ACCOUNT_OPTIONS,
             ),
             "payDate": st.column_config.DateColumn("지급일"),
             "fxRate": st.column_config.NumberColumn("환율", format="%.4f"),
@@ -329,3 +329,4 @@ if rows:
                 _force_rerun()
 else:
     st.info("먼저 알림톡 원문을 입력하고 Parse 버튼을 눌러 주세요.")
+ACCOUNT_OPTIONS = [acct.value for acct in AccountType if acct != AccountType.ALL]

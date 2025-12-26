@@ -24,6 +24,7 @@ class Base(DeclarativeBase):
 class AccountType(str, enum.Enum):
     TAXABLE = "TAXABLE"  # 일반
     ISA = "ISA"          # ISA
+    ALL = "ALL"
 
 
 class DividendSource(str, enum.Enum):
@@ -109,3 +110,40 @@ class DividendCache(Base):
     currency: Mapped[str] = mapped_column(String(8), nullable=False)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+
+class PortfolioSnapshot(Base):
+    __tablename__ = "portfolio_snapshots"
+    __table_args__ = (
+        UniqueConstraint("snapshot_date", "account_type", name="uq_snapshot_date_account"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    account_type: Mapped[AccountType] = mapped_column(
+        Enum(AccountType), nullable=False, default=AccountType.ALL
+    )
+    contributed_krw: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cash_krw: Mapped[float | None] = mapped_column(Float, nullable=True)
+    valuation_krw: Mapped[float | None] = mapped_column(Float, nullable=True)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="excel")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HoldingPosition(Base):
+    __tablename__ = "holding_positions"
+    __table_args__ = (
+        UniqueConstraint("ticker", "account_type", name="uq_holding_position"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    account_type: Mapped[AccountType] = mapped_column(Enum(AccountType), nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    avg_buy_price_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    total_cost_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

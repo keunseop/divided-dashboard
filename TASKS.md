@@ -1,192 +1,215 @@
 # Tasks
 
-## Context / Goal
-We are building a Streamlit-based dividend dashboard app (SQLite + SQLAlchemy).
-We already import dividend cashflow events from Excel CSV into `dividend_events`.
-Now we want two main stock-level features that do NOT depend on personal cost basis or share count:
-1) For tickers we hold (or have in our events), show whether the company's dividends are increasing or decreasing (dividend growth).
-2) For any searched ticker (not held), show the same dividend trend plus current dividend yield vs current price.
+## Project Context
+- Streamlit multipage app + SQLite + SQLAlchemy.
+- We already manage:
+  - Dividend events imported from Excel CSV (`dividend_events`)
+  - Ticker master (`ticker_master`)
+  - FX rates and DART dividend lookup (DART URL API, not OpenDartReader module)
+- New goal: add **portfolio contribution / valuation tracking** and **per-ticker position summary**.
+- User contributes **KRW 600,000 per month** into a dividend account.
+- There are 2 accounts: TAXABLE(일반) and ISA.
+- Requirements include:
+  - Total invested amount (매수 원금) trend
+  - Current valuation (평가금액) trend
+  - Cash (현금) trend
+  - Per-ticker: average buy price, quantity, market price, P/L (+/-)
+  - Per-ticker: show dividend trend together (from our existing dividend datasets)
 
-Important: "Dividend yield" here should be computed using market price + dividend per share (DPS / trailing dividend), NOT user’s cost basis.
-
-## Definitions
-- Dividend Growth (YoY): year-over-year % change of annual dividend per share (DPS) or total annual dividends.
-- Dividend Growth (CAGR): multi-year compounded annual growth rate using DPS (preferred) or annual dividend totals.
-- Trailing Dividend Yield: (sum of dividends per share over last 12 months) / (current price).
-- For ETFs like TLTW, use the dividend/distribution history; label as "distribution" if needed.
-
-## Data Requirements
-We need external market data:
-- US tickers: dividend history + current price
-- KR tickers: dividend history + current price
-Also we need caching in our DB to avoid repeated API calls.
-
----
-
-# P0: Create provider abstraction + caching
-
-## Task P0-1: Create DB tables for cached market data
-- Add SQLAlchemy models and migrations (simple recreate DB is ok in dev, but prefer non-destructive if possible).
-Tables:
-1) `price_cache`
-   - ticker (PK or composite with date)
-   - as_of_date (date, for daily close) or datetime (for current)
-   - price (float)
-   - currency (str)
-   - source (str)
-   - updated_at
-2) `dividend_cache`
-   - ticker
-   - ex_date (date) OR pay_date (date if ex_date unavailable)
-   - amount (float)  # per share dividend/distribution in ticker currency
-   - currency (str)
-   - source (str)
-   - created_at
-Indexes: ticker + date
-
-Acceptance:
-- DB tables exist and can be queried.
-- Cache upsert logic exists (avoid duplicates).
-
-## Task P0-2: Provider interface
-Create a Python interface-like abstraction:
-- `MarketDataProvider`
-  - `get_current_price(ticker) -> PriceQuote`
-  - `get_dividend_history(ticker, start_date, end_date) -> list[DividendPoint]`
-Implementations:
-- `USProviderYFinance` using `yfinance`
-- `KRProvider` placeholder (raise NotImplementedError) for now
-
-Acceptance:
-- USProvider works for ticker "MMM" and "TLTW" returning price and dividend history.
-- Results are stored in cache tables.
-
-Notes:
-- Normalize tickers to uppercase.
-- Handle errors gracefully and show user-friendly messages.
+## Scope / Rules
+- We DO compute user-specific holdings metrics in this feature set:
+  - average buy price, quantity, valuation, P/L.
+- We do NOT need brokerage integration; data entry can be via CSV imports (Excel source of truth).
+- Keep DB as the canonical store after import. Do not require live network calls for holdings.
+- UI should format KRW with thousands separators and "원".
 
 ---
 
-# P1: Stock dividend analytics (ticker-level) reusable functions
+# P0: Data Model for Contributions / Cash / Holdings
 
-## Task P1-1: Compute annual dividends per share series
-Given dividend history (per share events):
-- Aggregate by year: `annual_dividend[year] = sum(amounts in that year)`
-- Provide dataframe with columns: year, annual_dividend
+## Task P0-1: Add new tables/models
+Add SQLAlchemy models + create tables:
 
-Acceptance:
-- Unit tests or quick checks for MMM produce reasonable series.
+### 1) `portfolio_snapshots` (time-series of totals)
+- snapshot_id (PK autoincrement)
+- snapshot_date (date)  # monthly or arbitrary
+- account_type (enum: TAXABLE/ISA/ALL)
+- contributed_krw (float)  # 누적 납입/입금 원금 (e.g., monthly 600k)
+- cash_krw (float)         # snapshot cash balance
+- valuation_krw (float)    # total market value of holdings at snapshot_date (optional if not provided)
+- note (text, optional)
+- source (str: "excel"|"manual")
 
-## Task P1-2: Compute growth metrics
-Given annual dividend series:
-- YoY growth per year: (this/prev - 1)
-- 3y/5y CAGR (when enough data):
-  - CAGR = (last/first)^(1/n) - 1
-- Mark trend:
-  - "Growing" if last 3 years non-decreasing and CAGR > 0
-  - "Shrinking" if last 2 years decreasing or CAGR < 0
-  - "Volatile" otherwise
-
-Acceptance:
-- Functions return metrics + a trend label.
-
-## Task P1-3: Compute trailing dividend yield
-- trailing_12m_dividend = sum(dividends over last 365 days)
-- yield = trailing_12m_dividend / current_price
+### 2) `holding_positions` (per-account aggregated position)
+- id (PK)
+- ticker (str, 32)
+- account_type (enum)
+- quantity (float)
+- avg_buy_price_krw (float)
+- total_cost_krw (float)  # quantity * avg price
+- note (text, optional)
+- source ("excel"|"manual")
 
 Acceptance:
-- For US tickers, yield is computed and displayed.
+- Models exist; tables created; basic CRUD works.
+- Use `String(32)` for ticker to support KR + US tickers.
+
+## Task P0-2: Decide the user input format (CSV)
+We will keep Excel as source of truth. Create CSV schemas:
+
+1) `holding_positions.csv` (현재 보유 잔고)
+Header example:
+종목코드,계좌구분,수량,평균매입가(원),비고
+- 평균 매입가는 원화 기준.
+- 계좌구분: 일반->TAXABLE, ISA->ISA
+
+2) `portfolio_snapshots.csv` (optional if we track cash & totals monthly)
+Header example:
+snapshotId,기준일,계좌구분,누적원금,현금,평가금액,비고
+
+Acceptance:
+- Importers handle Korean headers and normalize values.
+- Duplicate/blank columns are ignored.
+- "-" treated as null.
 
 ---
 
-# P2: UI pages (Streamlit)
+# P1: Holdings Calculator (per ticker, per account)
 
-## Task P2-1: "Held Tickers Dividend Trend" page
-Purpose:
-- Show dividend trend for tickers we "hold" defined as:
-  - union of tickers present in `dividend_events` (non-archived) OR tickers listed in ticker_master
-- For each ticker:
-  - Name (from ticker_master if exists)
-  - Current price (cached)
-  - Trailing yield (cached dividends)
-  - Dividend growth: YoY last year, 3y/5y CAGR
-  - Trend label (Growing/Shrinking/Volatile)
-- Provide filters:
-  - market: KR/US/ALL (if known via ticker_master.market; otherwise infer: numeric -> KR, else US)
-  - minimum years of history (e.g., >=3)
+## Task P1-1: Compute position from lots
+Implement logic that produces current position per ticker (per account):
+- total_qty = running quantity (start from CSV baseline, then add manual buys)
+- avg_buy_price_krw = weighted average cost as buys are appended
+- invested_cost_krw = total_qty * avg_buy_price_krw
+- (Optional) realized P/L can be computed later.
 
 Acceptance:
-- Page loads without errors.
-- Shows a table summary for at least MMM if present.
-- Clicking a ticker expands details (annual dividend chart).
+- Given sample lots, position outputs correct qty and avg price.
+- Handles partial sells.
 
-## Task P2-2: "Ticker Search" page
-- Input ticker symbol (e.g., MMM, TLTW, 005930)
-- Fetch/cache price and dividend history
-- Display:
-  - annual dividends per share chart
-  - YoY and CAGR metrics
-  - trailing dividend yield
-  - basic info: currency, data source timestamp
-- Provide error handling:
-  - "No dividend data found"
-  - "Ticker not supported by provider"
+## Task P1-2: Store derived positions (optional)
+Optionally store computed positions into `holdings_positions` table for faster UI.
+Or compute on-the-fly in the dashboard.
 
 Acceptance:
-- Searching "MMM" works end-to-end.
+- Dashboard can render within 1s for typical dataset size.
 
 ---
 
-# P3: Korea data provider recommendation/implementation options
+# P2: Market Price Integration (for valuation / P&L)
 
-## Task P3-1: Investigate KR data sources and propose implementation
-We need an approach for KR tickers:
-Options:
-- OpenDART (official) for dividend announcements (requires parsing, more complex)
-- KRX / pykrx (scraping-based, easier but needs reliability review)
-Deliverable:
-- A short design note in `docs/kr_data_provider.md` recommending:
-  - MVP approach (fast)
-  - Production approach (official)
-  - Expected fields available (DPS, ex-date, pay-date, yield)
+## Task P2-1: Price input method
+Since KR network sources can be unreliable, avoid mandatory live calls.
+Support two modes:
+- Manual price import CSV (`prices.csv`)
+- Optional provider-based live fetch for US (yfinance) and KR (later)
+
+Schema `prices.csv`:
+asOfDate,ticker,price,currency,fxRate,priceKrw
 
 Acceptance:
-- A clear recommendation with pros/cons and next steps.
+- App can compute valuation_krw = qty * priceKrw.
+
+## Task P2-2: Valuation + P/L computation
+For each ticker:
+- market_price_krw
+- valuation_krw = qty * market_price_krw
+- cost_basis_krw = qty * avg_buy_price_krw
+- pnl_krw = valuation_krw - cost_basis_krw
+- pnl_pct = pnl_krw / cost_basis_krw
+
+Acceptance:
+- Per ticker table shows + / - indicator and formatted values.
 
 ---
 
-# Engineering Notes / Constraints
-- Do NOT compute user-specific yield based on cost basis or share count.
-- Always store and display values as "ticker-level" (per share) metrics.
-- Cache all API results; do not hammer providers.
-- Streamlit pages must not use ORM objects outside session context (convert to dict/df inside session).
-- Format KRW with thousand separators and "원" suffix in UI where applicable.
+# P3: UI / Dashboard Enhancements
 
+## Task P3-1: Portfolio Overview dashboard card
+Add to Dashboard page:
+- Total contributed_krw (if snapshots exist) OR sum of BUY krw_amount as "invested"
+- Total valuation_krw (sum over tickers)
+- Total cash_krw (from snapshots or manual input)
+- Total P/L and P/L%
 
+Charts:
+- Time-series chart of contributed vs valuation vs cash (from `portfolio_snapshots`)
+- If snapshots not provided, show only current totals.
 
+Acceptance:
+- KRW values formatted with commas and "원".
+- No SQLAlchemy DetachedInstanceError (convert inside session).
 
+## Task P3-2: Holdings table widget
+Create a table:
+Columns:
+- ticker
+- name_ko (join ticker_master)
+- account_type (filter)
+- qty
+- avg_buy_price_krw
+- market_price_krw
+- cost_basis_krw
+- valuation_krw
+- pnl_krw, pnl_pct
+- status: "+" / "-" / "N/A"
 
+Interactions:
+- filter by account_type (ALL/TAXABLE/ISA)
+- search ticker
 
+Acceptance:
+- Works with KR + US tickers.
 
+## Task P3-3: Ticker detail view (combined holdings + dividends)
+When user clicks/selects a ticker:
+- Show holdings summary (qty, avg price, pnl)
+- Show dividend trend:
+  - from existing dividend_events cashflow (krwGross) by year/month
+  - and/or DART dividend per share trend if available
+- Charts:
+  - annual dividend cashflow (KRW) from dividend_events
+  - annual DPS series (if we store DART results)
+- Provide notes if dividend data missing.
 
+Acceptance:
+- "Single ticker" page works end-to-end for a ticker in both holdings and dividend_events.
 
+---
 
+# P4: Import Pages
 
+## Task P4-1: Add "Import Holdings Lots CSV" page
+- Upload CSV
+- Preview
+- Import button
+- Upsert by tradeId
+- Sync mode optional (archive missing trades rather than delete)
 
+## Task P4-2: Add "Import Portfolio Snapshots CSV" page
+- Upload CSV
+- Preview
+- Import button
+- Upsert by snapshotId
 
+## Task P4-3: Add "Import Prices CSV" page
+- Upload CSV
+- Preview
+- Import button
+- Upsert by (asOfDate, ticker)
 
-## P4 (Later)
-- [x] Alimtalk parser module:
-  - Save raw_text
-  - Extract gross/net/tax/currency/payDate/ticker
-  - Upsert into DividendEvent with source=alimtalk
-- [ ] Stock Finder:
-  - Data source decision (KRX first, then DART, optional commercial data)
-  - Screener for dividend growth (3-5y), yield, stability
-  - Price chart + yield-at-current-price
+Acceptance:
+- All imports provide success counts inserted/updated/archived candidates.
 
+---
 
-
+# Notes / Implementation Guidance
+- Use ticker normalization: `strip().upper()`
+- Account type normalization:
+  - "일반" -> TAXABLE
+  - "ISA" -> ISA
+- Keep the app stable without network calls. Live price fetching is optional.
+- Ensure all monetary outputs use thousand separators.
 
 ## P5 
 - [ ] Dashboard 의 top 15 종목에 대하여, 각 종목별 전체 배당엑 대비 차지하는 비율을 표시해줄 수 있는 원형 차트를 그려줘.

@@ -15,7 +15,7 @@ with filter_col:
         key="dashboard_metric",
     )
 
-account_options = ["ALL"] + [acct.value for acct in AccountType]
+account_options = ["ALL"] + [acct.value for acct in AccountType if acct != AccountType.ALL]
 with account_col:
     account_filter = st.selectbox(
         "계좌",
