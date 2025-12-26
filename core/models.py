@@ -79,3 +79,33 @@ class TickerMaster(Base):
 
     market: Mapped[str | None] = mapped_column(String(16), nullable=True)
     currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
+
+
+class PriceCache(Base):
+    __tablename__ = "price_cache"
+    __table_args__ = (
+        UniqueConstraint("ticker", "as_of", name="uq_price_cache_ticker_asof"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    as_of: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class DividendCache(Base):
+    __tablename__ = "dividend_cache"
+    __table_args__ = (
+        UniqueConstraint("ticker", "event_date", name="uq_dividend_cache_ticker_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    event_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())

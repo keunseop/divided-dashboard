@@ -61,3 +61,15 @@ Parsing rules:
 3) Basic analytics: yearly/monthly trend, YoY, CAGR.
 4) Alimtalk parser (later): ingest messages and fill tax/net fields.
 5) Stock finder module (later): data sources (KRX/DART/etc.), screening, charts, yield at current price.
+
+## Scope Clarification (Important)
+
+- This project does NOT compute user-specific investment returns.
+- Cost basis, average purchase price, share count, and personal yield-on-cost are explicitly out of scope.
+- All dividend yield and growth metrics are computed at the **ticker level only**, based on:
+  - Dividend per share (DPS) or distribution history
+  - Market price (current or historical)
+- The app focuses on:
+  - Dividend trend quality (growing / shrinking / volatile)
+  - Ticker-level dividend yield and growth
+  - Cashflow tracking via imported dividend events (KRW-converted gross amounts)
