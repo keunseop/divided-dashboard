@@ -198,14 +198,49 @@ class USProviderYFinance(BaseYFinanceProvider):
     default_currency = "USD"
 
 
+class KRYFinanceProvider(BaseYFinanceProvider):
+    """YFinance provider for KR tickers using .KS/.KQ suffix heuristics."""
+
+    name = "yfinance-kr"
+    default_currency = "KRW"
+
+    def _candidate_symbols(self, ticker: str) -> list[str]:
+        normalized = normalize_ticker(ticker)
+        base = normalized.lstrip("A")
+        seeds = [normalized]
+        if base and base != normalized:
+            seeds.append(base)
+
+        suffixes = [".KS", ".KQ", ".KO"]
+        candidates: list[str] = []
+        for seed in seeds:
+            if not seed:
+                continue
+            if any(seed.endswith(suffix) for suffix in suffixes):
+                candidates.append(seed)
+                continue
+            for suffix in suffixes:
+                candidates.append(f"{seed}{suffix}")
+            candidates.append(seed)
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for symbol in candidates:
+            if symbol and symbol not in seen:
+                seen.add(symbol)
+                deduped.append(symbol)
+        return deduped
+
+
 class KRLocalProvider(MarketDataProvider):
     """KR provider that uses local cache/snapshots for price and dividend_events for dividends."""
 
     name = "kr-local"
     SNAPSHOT_FILE = DATA_DIR / "kr_price_snapshot.csv"
 
-    def __init__(self) -> None:
+    def __init__(self, *, fallback_provider: MarketDataProvider | None = None) -> None:
         self._snapshot_prices: dict[str, PriceQuote] | None = None
+        self._fallback_provider = fallback_provider or KRYFinanceProvider()
 
     def get_current_price(self, session: Session, ticker: str) -> PriceQuote:
         normalized = normalize_ticker(ticker)
@@ -218,10 +253,20 @@ class KRLocalProvider(MarketDataProvider):
             _upsert_price_cache(session, snapshot)
             return snapshot
 
-        raise ValueError(
+        fallback_error: Exception | None = None
+        if self._fallback_provider:
+            try:
+                return self._fallback_provider.get_current_price(session, normalized)
+            except Exception as exc:  # pragma: no cover - network failure
+                fallback_error = exc
+
+        msg = (
             f"{ticker}: 가격 데이터를 찾을 수 없습니다. KR 종목 가격은 price_cache 또는 data/kr_price_snapshot.csv 에서만 제공합니다. "
             "스냅샷 파일에 최신 종가를 추가하거나 price_cache 를 채워주세요."
         )
+        if fallback_error:
+            msg = f"{msg} (추가 시도 실패: {fallback_error})"
+        raise ValueError(msg)
 
     def get_dividend_history(
             self,

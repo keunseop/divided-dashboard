@@ -147,3 +147,20 @@ class HoldingPosition(Base):
     note: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HoldingValuationSnapshot(Base):
+    __tablename__ = "holding_valuation_snapshots"
+    __table_args__ = (
+        UniqueConstraint("valuation_date", "account_type", name="uq_valuation_snapshot"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    valuation_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    account_type: Mapped[AccountType] = mapped_column(Enum(AccountType), nullable=False, index=True)
+    total_cost_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    market_value_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    gain_loss_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    gain_loss_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
