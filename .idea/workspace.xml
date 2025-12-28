@@ -4,24 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="대시보드에 현재가 및 평가손익 추가">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="페이지명 한글화 및 관리자 페이지로 분리">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PROJECT_RULES.md" beforeDir="false" afterPath="$PROJECT_DIR$/PROJECT_RULES.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/TASKS.md" beforeDir="false" afterPath="$PROJECT_DIR$/TASKS.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/portfolio_importer.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/portfolio_importer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/ui_autocomplete.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ui_autocomplete.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/dividends.sqlite3" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/10_Portfolio_Imports.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/1_Import_CSV.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/2_Dividends_Table.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/3_Dashboard.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/4_Ticker_Master.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/5_Missing_Tickers.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/6_Alimtalk_Parser.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/7_Held_Ticker_Trends.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/8_Ticker_Search.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/9_Dart_Single_Fetch.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -249,7 +236,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766750552395</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="페이지명 한글화 및 관리자 페이지로 분리">
+      <option name="closed" value="true" />
+      <created>1766925165081</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1766925165081</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -263,6 +258,7 @@
     <MESSAGE value="배당 조회 api 추가, DB 캐시 기능 추가 등" />
     <MESSAGE value="현재 포지션 추가 기능" />
     <MESSAGE value="대시보드에 현재가 및 평가손익 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="대시보드에 현재가 및 평가손익 추가" />
+    <MESSAGE value="페이지명 한글화 및 관리자 페이지로 분리" />
+    <option name="LAST_COMMIT_MESSAGE" value="페이지명 한글화 및 관리자 페이지로 분리" />
   </component>
 </project>

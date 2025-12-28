@@ -11,6 +11,7 @@ from sqlalchemy import (
     Float,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -25,6 +26,15 @@ class AccountType(str, enum.Enum):
     TAXABLE = "TAXABLE"  # 일반
     ISA = "ISA"          # ISA
     ALL = "ALL"
+
+
+class PrefetchJobStatus(str, enum.Enum):
+    RUNNING = "RUNNING"
+    PAUSED = "PAUSED"
+    CANCELLED = "CANCELLED"
+    DONE = "DONE"
+    FAILED = "FAILED"
+    CANCELLED_REQUESTED = "CANCELLED_REQUESTED"
 
 
 class DividendSource(str, enum.Enum):
@@ -170,3 +180,45 @@ class HoldingValuationSnapshot(Base):
     gain_loss_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class DividendDpsCache(Base):
+    __tablename__ = "dividend_dps_cache"
+    __table_args__ = (
+        UniqueConstraint("ticker", "fiscal_year", "reprt_code", name="uq_dps_cache_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    fiscal_year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    reprt_code: Mapped[str] = mapped_column(String(8), nullable=False, default="11011")
+    currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    dps_cash: Mapped[float | None] = mapped_column(Float, nullable=True)
+    parser_version: Mapped[str] = mapped_column(String(16), nullable=False, default="v1")
+    raw_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class PrefetchJob(Base):
+    __tablename__ = "prefetch_jobs"
+
+    job_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default=PrefetchJobStatus.PAUSED.value)
+    job_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    tickers_json: Mapped[str] = mapped_column(Text, nullable=False)
+    start_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    end_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    reprt_code: Mapped[str] = mapped_column(String(8), nullable=False, default="11011")
+    force_refresh: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    cursor_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cursor_year: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    processed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    success_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    skip_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    fail_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)

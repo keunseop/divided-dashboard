@@ -1,141 +1,189 @@
-# TASKS.md — 사이드바 메뉴 정리 + Admin 비밀번호 게이트(로그인/유저DB 없이)
+# TASKS.md — DART 배당 DB화 + Write-through 캐시 + 수동 Prefetch(관리자, 진행률/취소/재개)
 
 ## 목표
-- Streamlit 좌측 메뉴를 “회원(일반 사용자)” 중심으로 재구성한다.
-- 로그인/회원가입/유저 테이블은 **지금 단계에서 구현하지 않는다.**
-- 대신 “관리자 메뉴”에 들어갈 때만 **관리자 비밀번호를 요구**하는 방식으로 접근 제어한다.
-- 메뉴명/페이지 제목은 **한글**로 통일한다.
-
-현재 페이지 목록:
-1) import_csv
-2) dividends_table
-3) dashboard
-4) ticker_master
-5) missing_ticker
-6) alimtalk_parser
-7) held_ticker_trends
-8) ticker_search
-9) dart_single_fetch
-10) portfolio_imports
+- DART DPS 데이터를 DB에 영속 캐시로 저장.
+- 조회 시 DB 우선 + 누락분만 DART 호출(write-through).
+- 자동 스케줄 없이, **관리자 페이지에서 수동 Prefetch** 수행.
+- Prefetch 실행 중:
+  - 진행률 표시
+  - 중간 취소
+  - 다음 실행 시 “이어서(재개)” 가능
 
 ---
 
-## P0. 메뉴 정보구조(IA) 확정
+## P0. DB 스키마/모델
 
-### Task P0-1: 최종 메뉴 그룹/라벨(한글) 정의
-일반 사용자(기본):
-- **대시보드**
-- **포트폴리오 가져오기** (portfolio_imports)
-- **배당 내역 가져오기** (import_csv)
-- **보유 종목 배당 추이** (held_ticker_trends)
-- **종목 검색** (ticker_search)
-- **알림톡 파서** (alimtalk_parser)
-
-관리자(게이트 필요):
-- **[관리자] 배당 원장 테이블** (dividends_table)
-- **[관리자] 종목 마스터 관리** (ticker_master)
-- **[관리자] 미등록 티커 확인** (missing_ticker)
-- **[관리자] DART 단건 조회(디버그)** (dart_single_fetch)
-
-산출물:
-- `docs/menu_structure.md` (간단한 문서: 메뉴 구성/매핑/설명)
+### Task P0-1: `dividend_dps_cache` 테이블/모델 (**완료**)
+(기존 Task 유지)
+- Unique: (ticker, fiscal_year, reprt_code)
+- 저장: dps_cash, raw_payload, fetched_at/updated_at, parser_version, etc.
 
 Acceptance:
-- 위 구성이 docs에 정리되어 있고, 기존 페이지가 모두 어디로 가는지 매핑됨.
+- DB에 저장/조회 가능. ✅
+
+### Task P0-2: Prefetch 작업 상태 테이블 `prefetch_jobs` (**완료**)
+새 모델 추가 (재개/취소를 위해 필요)
+
+Table: `prefetch_jobs`
+- `job_id` (PK, uuid 문자열 추천)
+- `created_at` (datetime)
+- `updated_at` (datetime)
+- `status` (String: "RUNNING"|"CANCELLED"|"DONE"|"FAILED")
+- `job_name` (String, nullable)  # 사용자 입력(예: "KR 대형주 2015-2025")
+- `tickers_json` (Text)          # 작업 대상 ticker 목록
+- `start_year` (int)
+- `end_year` (int)
+- `reprt_code` (String(5))
+- `force_refresh` (bool)
+- `cursor_index` (int)           # 현재 ticker 인덱스(0..n-1)
+- `cursor_year` (int)            # 현재 처리 중 연도
+- `processed_count` (int)
+- `success_count` (int)
+- `skip_count` (int)             # 013
+- `fail_count` (int)
+- `last_error` (Text, nullable)
+
+Acceptance:
+- job 생성/업데이트/조회 가능. ✅
+- job을 저장하고 재개할 수 있는 최소 정보 포함.
 
 ---
 
-## P1. Admin 비밀번호 게이트(로그인 없이)
+## P1. Service Layer — Write-through + Prefetch Runner
 
-### Task P1-1: 관리자 접근 제어 유틸 추가
-`core/admin_gate.py` 생성:
-
-기능:
-- `is_admin_unlocked() -> bool`
-- `require_admin()` : 관리자 비밀번호 입력 UI(한 번만) + 성공 시 session_state에 플래그 저장
-- `lock_admin()` : 관리자 잠금(세션 플래그 해제)
-- 비밀번호는 코드에 하드코딩하지 말고 `st.secrets["ADMIN_PASSWORD"]` 또는 환경변수로 읽기
-- 실패 시: 경고 메시지 + `st.stop()`
+### Task P1-1: `get_dps_series()` (write-through) (**완료**)
+(기존 Task 유지)
+- DB에서 조회 → 누락 연도만 DART 호출 → upsert.
 
 Acceptance:
-- 관리자 페이지에 들어가면 비밀번호 입력이 뜨고, 맞으면 페이지가 열림.
-- 새로고침/재접속 시(세션이 날아가면) 다시 요구할 수 있음(OK).
-- 일반 메뉴에는 영향 없음.
+- 동일 ticker 재조회 시 DART 재호출 최소화. ✅
 
-### Task P1-2: 모든 관리자 페이지 상단에 게이트 적용
-다음 페이지들 맨 위에 `require_admin()` 호출 추가:
-- dividends_table
-- ticker_master
-- missing_ticker
-- dart_single_fetch
+### Task P1-2: Prefetch 실행기(중단/재개 지원) (**완료**)
+`core/prefetch_runner.py` 생성
+
+필수 함수:
+1) `create_job(tickers, start_year, end_year, reprt_code, force_refresh, job_name) -> job_id`
+2) `load_job(job_id) -> job`
+3) `request_cancel(job_id)`:
+   - job status를 "CANCELLED_REQUESTED" 또는 session flag 기반으로 처리(선택)
+4) `run_job_step(job_id, step_limit=1) -> job`
+   - job의 cursor 위치부터 step_limit 만큼만 처리하고 저장
+   - UI에서 반복 호출(루프)하여 진행률 업데이트 가능하도록 “한 스텝 실행” 방식으로 설계
+5) `resume_job(job_id)`:
+   - status가 CANCELLED/RUNNING이 아니면 RUNNING으로 바꾸고 실행 재개
+
+실행 규칙:
+- 처리 단위: (ticker, year)
+- 각 step에서:
+  - 취소 요청 체크 → 취소면 status="CANCELLED" 저장 후 return
+  - 캐시 존재 + force_refresh=False면 스킵 처리 가능(옵션)
+  - DART 호출
+    - 013: skip_count++
+    - 성공: success_count++
+    - 실패: fail_count++ + last_error 저장(단, 전체 중단 vs continue는 옵션)
+  - cursor_year 증가 → end_year 넘으면 다음 ticker로 cursor_index 증가, cursor_year = start_year
+- DONE 조건: cursor_index == len(tickers)
 
 Acceptance:
-- 비밀번호 없이 관리자 페이지 접근 불가.
-- 비밀번호 입력 후 정상 표시.
+- 중간에 job을 멈추고(cursor 저장), 다시 실행하면 이어서 진행됨. ✅
+- step_limit 기반으로 UI 진행률 갱신 가능.
 
 ---
 
-## P2. 페이지 파일명/정렬/한글 타이틀 정리
+## P2. UI — 관리자 수동 Prefetch(진행률/취소/재개)
 
-### Task P2-1: 페이지 파일명 변경(사이드바 정렬)
-Streamlit은 파일명(접두 숫자)로 정렬되므로 아래처럼 변경한다.
+### Task P2-1: 관리자 페이지 `관리자_DART_배당_미리채우기` 구현
+파일 예: `pages/94_관리자_DART_배당_미리채우기.py`
+(관리자 비밀번호 게이트 적용)
 
-일반 사용자:
-- `pages/1_대시보드.py` (기존 dashboard)
-- `pages/2_포트폴리오_가져오기.py` (기존 portfolio_imports)
-- `pages/3_배당_내역_가져오기.py` (기존 import_csv)
-- `pages/4_보유_종목_배당_추이.py` (기존 held_ticker_trends)
-- `pages/5_종목_검색.py` (기존 ticker_search)
-- `pages/6_알림톡_파서.py` (기존 alimtalk_parser)
+UI 구성:
+1) 입력 섹션
+- tickers 입력(멀티라인/콤마/공백 지원)
+- 또는 자동 선택:
+  - ticker_master에서
+  - dividend_events에서(보유/등장 티커)
+- year range (start_year/end_year)
+- reprt_code (default 11011)
+- force_refresh 체크박스
+- job_name 입력(optional)
 
-관리자:
-- `pages/90_관리자_배당_원장_테이블.py` (기존 dividends_table)
-- `pages/91_관리자_종목_마스터_관리.py` (기존 ticker_master)
-- `pages/92_관리자_미등록_티커_확인.py` (기존 missing_ticker)
-- `pages/93_관리자_DART_단건_조회.py` (기존 dart_single_fetch)
+2) “작업 생성” 버튼
+- create_job 호출 → job_id 생성
+- session_state에 `active_job_id` 저장
+
+3) 진행 섹션(작업이 있을 때)
+- 진행률(progress bar):
+  - total_steps = len(tickers) * (end_year - start_year + 1)
+  - done_steps = processed_count
+  - progress = done_steps / total_steps
+- 현재 처리 중 표시:
+  - 현재 ticker, year
+  - success/skip/fail 카운트
+  - 최근 에러(last_error) 있으면 표시
+- 버튼:
+  - “계속 실행(▶)” (RUNNING 시작/재개)
+  - “일시 중지(⏸)” (CANCELLED 또는 PAUSED로 상태 변경)
+  - “취소(⛔)” (CANCELLED 상태)
+  - “처음부터 다시(🔄)” (새 job 생성 유도; 기존 job은 DONE/CANCELLED로 유지)
+
+진행 갱신 방식(중요):
+- Streamlit은 단일 실행 흐름이므로, “계속 실행”을 누르면:
+  - while-loop로 무한 돌리지 말고,
+  - `run_job_step(job_id, step_limit=k)` 호출 후 `st.rerun()`을 반복하는 방식 사용
+  - 예: 한 rerun 당 k=5~20 step 처리(너무 크면 UI 멈춤)
 
 Acceptance:
-- 사이드바 메뉴가 위 순서대로 표시됨.
-- 관리자 메뉴는 맨 아래에 모임.
+- progress bar가 실시간으로 증가.
+- 취소/일시정지 버튼이 즉시 반영.
+- 재개 시 이전 cursor 위치부터 다시 시작.
 
-### Task P2-2: 각 페이지 타이틀/설명 한글 통일
-각 페이지에서 `st.title()` / `st.caption()`을 한글로 정리한다.
-예:
-- 대시보드: “대시보드”
-- 배당 내역 가져오기: “배당 내역 가져오기(CSV)”
-- 포트폴리오 가져오기: “포트폴리오 가져오기”
-- 관리자 페이지: “관리자: …”
+### Task P2-2: “나중에 이어서” UX
+- 페이지 상단에 최근 job 목록 표시(최근 10개)
+  - job_name, created_at, status, progress%
+  - “재개” 버튼(해당 job_id를 active_job_id로 선택)
+- DONE/CANCELLED도 목록에 남겨서 히스토리 확인 가능
 
 Acceptance:
-- 페이지 제목이 파일명/메뉴명과 일치.
-- 혼합된 영문/스네이크케이스 제목 제거.
+- 새로고침/앱 재시작 후에도(세션이 날아가도) DB에 저장된 job을 선택하여 재개 가능.
 
 ---
 
-## P3. UX: 관리자 잠금/해제 버튼(선택)
+## P3. 안정성/성능/품질
 
-### Task P3-1: 사이드바에 “관리자 잠금/해제” 섹션 추가
-- 일반 사용자 메뉴 하단에:
-  - “관리자 잠금 해제” 버튼(누르면 require_admin 흐름)
-  - 관리자 해제된 상태면 “관리자 잠금” 버튼 표시
-- 단, “관리자 메뉴”를 누르지 않아도 미리 풀 수 있게 제공
+### Task P3-1: 캐시 존재 시 스킵 정책
+Prefetch에서 성능 최적화:
+- force_refresh=False이면 DB에 이미 값이 있는 (ticker,year)은 호출하지 않고 스킵
+- 단, 최근 1~2개 연도는 옵션으로 “항상 재검증” 토글 가능(선택)
 
 Acceptance:
-- 관리자가 편하게 토글 가능.
-- 일반 사용자는 버튼 눌러도 비밀번호 없으면 풀리지 않음.
+- 이미 채워진 구간은 매우 빠르게 완료.
+
+### Task P3-2: 네트워크 보호(재시도/백오프)
+- 실패 시 1~2회 재시도(간단)
+- 연속 실패가 많으면 sleep(예: 0.2~0.5s) 옵션
+- DART rate limit을 고려해 과도한 병렬 처리 금지
+
+Acceptance:
+- 일시적 네트워크 실패에 견고.
+
+### Task P3-3: 파서 버전/원본 저장
+- `parser_version` 고정값 저장 (예: "v1")
+- `raw_payload`에 DART 응답 일부 저장(크기 제한 가능)
+
+Acceptance:
+- 나중에 파서 개선 시 force_refresh로 재생성 가능.
 
 ---
 
-## 제외(이번 범위에서 하지 않음)
-- 로그인/회원가입
-- user_id/portfolio_id 등 멀티유저 DB 스키마 변경
-- 권한(Role) 테이블/세션 영구 저장
-
----
-
-## 구현 메모
-- 비밀번호는 `st.secrets`를 우선 사용:
-  - `.streamlit/secrets.toml`에 `ADMIN_PASSWORD="..."` 설정
-- 게이트 상태 저장:
-  - `st.session_state["admin_unlocked"] = True/False`
-- 관리자 페이지는 “숨기기”보다는 “접근 시 비밀번호 요구”로 충분.
+## 구현 메모(중요)
+- Streamlit에서 “취소”는 즉시 프로세스를 kill할 수 없으니,
+  **각 step마다 cancel flag를 확인**하는 구조로 설계해야 한다.
+- 권장 상태 값:
+  - RUNNING / PAUSED / CANCELLED / DONE / FAILED
+- st.session_state:
+  - `active_job_id`
+  - `run_mode` (True/False)
+  - `cancel_requested` (optional, but DB status가 더 안정적)
+- UI 멈춤 방지:
+  - 한 rerun 당 처리량(step_limit)을 적절히 제한 (예: 10)
+  - 처리 후 `st.rerun()`으로 갱신
