@@ -1,6 +1,9 @@
 import pandas as pd
 import streamlit as st
 from datetime import date
+from dateutil.relativedelta import relativedelta
+from sqlalchemy import select
+import FinanceDataReader as fdr
 
 from core.analytics import (
     compute_annual_dividends,
@@ -12,6 +15,7 @@ from core.market_service import (
     get_dividend_history_for_ticker,
     get_price_quote_for_ticker,
 )
+from core.models import DividendCache, DividendEvent, TickerMaster
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import infer_market_from_ticker, normalize_ticker
 
@@ -20,6 +24,109 @@ st.title("종목 검색")
 st.caption(
     "티커를 직접 조회하여 최신 배당/가격 데이터를 확인합니다. "
     "미국 종목은 yfinance를 사용하며, 한국 종목은 DART/로컬 데이터를 사용합니다."
+)
+
+
+@st.cache_data(ttl=300)
+def _load_owned_tickers() -> dict[str, str]:
+    with db_session() as session:
+        rows = (
+            session.execute(
+                select(DividendEvent.ticker, TickerMaster.name_ko)
+                .join(TickerMaster, TickerMaster.ticker == DividendEvent.ticker, isouter=True)
+                .where(DividendEvent.archived == False)  # noqa: E712
+                .order_by(DividendEvent.ticker)
+            )
+            .all()
+        )
+    result: dict[str, str] = {}
+    for ticker, name in rows:
+        if ticker in result:
+            continue
+        display = f"{ticker} — {name}" if name else ticker
+        result[ticker] = display
+    return result
+
+
+def _persist_dividend_cache(ticker: str, entries):
+    inserted = 0
+    updated = 0
+    with db_session() as session:
+        for entry in entries:
+            existing = session.execute(
+                select(DividendCache).where(
+                    DividendCache.ticker == ticker,
+                    DividendCache.event_date == entry.event_date,
+                )
+            ).scalar_one_or_none()
+
+            if existing:
+                existing.amount = entry.amount
+                existing.currency = entry.currency
+                existing.source = entry.source or existing.source
+                updated += 1
+            else:
+                session.add(
+                    DividendCache(
+                        ticker=ticker,
+                        event_date=entry.event_date,
+                        amount=entry.amount,
+                        currency=entry.currency,
+                        source=entry.source or "manual",
+                    )
+                )
+                inserted += 1
+    return inserted, updated
+
+
+@st.cache_data(ttl=60 * 60 * 6)
+def _fetch_price_history_kr(ticker: str, start: date, end: date) -> pd.DataFrame:
+    try:
+        df = fdr.DataReader(ticker, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
+    except Exception:
+        return pd.DataFrame()
+    if df is None or df.empty:
+        return pd.DataFrame()
+    df = df.copy()
+    df.reset_index(inplace=True)
+    if "Date" not in df.columns:
+        if "index" in df.columns:
+            df.rename(columns={"index": "Date"}, inplace=True)
+        else:
+            return pd.DataFrame()
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.sort_values("Date")
+    return df
+
+
+def _render_price_chart_kr(ticker: str) -> None:
+    end = date.today()
+    start = end - relativedelta(years=5)
+    df = _fetch_price_history_kr(ticker, start, end)
+    if df.empty:
+        st.warning("네이버 가격 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.")
+        return
+
+    freq = st.radio("가격 차트 단위", ["일봉", "주봉"], horizontal=True, index=1)
+    display_df = df.copy()
+    if freq == "주봉":
+        display_df = (
+            display_df.set_index("Date")
+            .resample("W-FRI")
+            .agg({"Close": "last"})
+            .dropna()
+            .reset_index()
+        )
+
+    st.subheader("최근 5년 가격(종가)")
+    st.line_chart(display_df.set_index("Date")["Close"])
+
+owned_map = _load_owned_tickers()
+owned_options = [""] + list(owned_map.keys())
+selected_owned = st.selectbox(
+    "보유 종목 빠른 선택",
+    options=owned_options,
+    format_func=lambda value: "선택 안 함" if value == "" else owned_map.get(value, value),
 )
 
 manual_ticker = st.text_input(
@@ -50,18 +157,29 @@ history_years = st.slider(
     value=8,
     help="최근 N년 치 배당 데이터만 조회합니다.",
 )
+force_refresh = st.checkbox("강제 새로고침", value=False, help="체크 시 DART/프로바이더를 다시 조회하고 캐시를 갱신합니다.")
 
 if st.button("조회") is False:
     st.stop()
 
 manual_normalized = normalize_ticker(manual_ticker)
-if selected_candidate:
+if selected_owned:
+    ticker = selected_owned
+elif selected_candidate:
     ticker = normalize_ticker(selected_candidate.ticker)
 elif manual_normalized:
     ticker = manual_normalized
 else:
     st.warning("자동완성에서 종목을 선택하거나 직접 티커를 입력해 주세요.")
     st.stop()
+
+is_kr_numeric = ticker.isdigit() and len(ticker) == 6
+
+if is_kr_numeric:
+    _render_price_chart_kr(ticker)
+else:
+    st.caption("미국/비상장 종목 가격 차트는 추후 지원 예정입니다.")
+
 market = None if market_option == "AUTO" else market_option
 market = infer_market_from_ticker(ticker, market)
 
@@ -76,6 +194,7 @@ with db_session() as session:
             ticker,
             market=market,
             start_date=start_date,
+            force_refresh=force_refresh,
         )
     except NotImplementedError as exc:
         st.error(str(exc))
@@ -87,6 +206,12 @@ with db_session() as session:
 if not dividend_history:
     st.warning("배당 데이터가 없습니다. ETF/신규상장 종목일 수 있습니다.")
     st.stop()
+
+sources = {point.source for point in dividend_history}
+if "dart" in sources:
+    st.info("DART에서 가져온 최신 데이터입니다. 필요 시 아래 버튼으로 DB 캐시에 저장할 수 있습니다.")
+else:
+    st.caption("캐시된 데이터를 사용했습니다.")
 
 annual = compute_annual_dividends(dividend_history)
 metrics = compute_growth_metrics(annual)
@@ -142,3 +267,7 @@ history_df = pd.DataFrame(
     ]
 )
 st.dataframe(history_df, hide_index=True, use_container_width=True)
+
+if st.button("배당 데이터 DB 저장", type="primary"):
+    inserted, updated = _persist_dividend_cache(ticker, dividend_history)
+    st.success(f"저장 완료: 신규 {inserted}건, 갱신 {updated}건")

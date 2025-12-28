@@ -21,6 +21,7 @@ from core.prefetch_runner import (
 from core.utils import normalize_ticker
 
 ACTIVE_JOB_KEY = "prefetch_active_job_id"
+RUN_MODE_KEY = "prefetch_run_mode"
 STEP_LIMIT_KEY = "prefetch_step_limit"
 STEP_SLIDER_KEY = "prefetch_step_slider"
 
@@ -28,6 +29,12 @@ require_admin()
 
 st.title("관리자: DART 배당 미리채우기")
 st.caption("여러 종목/연도 범위를 한 번에 Prefetch하여 DPS 캐시를 미리 채우고 관리합니다.")
+
+
+def _trigger_rerun():
+    rerun_fn = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
+    if rerun_fn:
+        rerun_fn()
 
 
 def _parse_ticker_blob(blob: str) -> list[str]:
@@ -74,12 +81,27 @@ def _get_active_job():
     return job
 
 
+if RUN_MODE_KEY not in st.session_state:
+    st.session_state[RUN_MODE_KEY] = False
 if STEP_LIMIT_KEY not in st.session_state:
     st.session_state[STEP_LIMIT_KEY] = 10
 if STEP_SLIDER_KEY not in st.session_state:
     st.session_state[STEP_SLIDER_KEY] = st.session_state[STEP_LIMIT_KEY]
 
 active_job = _get_active_job()
+run_mode = st.session_state.get(RUN_MODE_KEY, False)
+
+if active_job and run_mode:
+    if active_job.status in (
+        PrefetchJobStatus.RUNNING.value,
+        PrefetchJobStatus.CANCELLED_REQUESTED.value,
+    ):
+        step_limit = st.session_state.get(STEP_LIMIT_KEY, 10)
+        run_job_step(active_job.job_id, step_limit=step_limit)
+        _trigger_rerun()
+    else:
+        st.session_state[RUN_MODE_KEY] = False
+        active_job = _get_active_job()
 
 
 st.subheader("최근 Prefetch 작업")
@@ -99,7 +121,10 @@ else:
             st.caption(f"{job.status} · {created_display}")
         with cols[1]:
             st.write(f"{job.start_year}~{job.end_year}")
-            st.caption(f"{len(job.tickers)} tickers")
+            revalidate_hint = (
+                f"최근 {job.revalidate_recent_years}년 재검증" if job.revalidate_recent_years else "캐시 우선"
+            )
+            st.caption(f"{len(job.tickers)} tickers · {revalidate_hint}")
         with cols[2]:
             st.progress(progress, text=f"{progress*100:,.1f}% 완료")
         with cols[3]:
@@ -110,6 +135,8 @@ else:
             btn_label = "재개" if job.status != PrefetchJobStatus.RUNNING.value else "보기"
             if st.button(btn_label, key=f"resume_recent_{job.job_id}"):
                 st.session_state[ACTIVE_JOB_KEY] = job.job_id
+                st.session_state[RUN_MODE_KEY] = False
+                _trigger_rerun()
 
 st.divider()
 
@@ -138,6 +165,13 @@ with st.form("prefetch_job_form"):
     end_year = col_year_b.number_input("종료 연도", min_value=2000, max_value=2100, value=datetime.today().year)
     reprt_code = col_year_a.text_input("DART reprt_code", value="11011")
     force_refresh = col_year_b.checkbox("Force Refresh", value=False, help="이미 캐시된 연도라도 다시 조회합니다.")
+    revalidate_recent = st.slider(
+        "최근 연도 재검증",
+        min_value=0,
+        max_value=2,
+        value=0,
+        help="0이면 캐시 우선, 1~2로 설정하면 Force Refresh 없이도 해당 구간을 항상 재조회합니다.",
+    )
     job_name = st.text_input("작업 이름 (선택)", placeholder="예: KR 대형주 2015-2024")
     submit = st.form_submit_button("작업 생성", use_container_width=True)
 
@@ -164,12 +198,14 @@ with st.form("prefetch_job_form"):
                     reprt_code=reprt_code or "11011",
                     force_refresh=force_refresh,
                     job_name=clean_name,
+                    revalidate_recent_years=revalidate_recent,
                 )
             except Exception as exc:
                 st.error(f"작업 생성에 실패했습니다: {exc}")
             else:
                 st.success(f"작업이 생성되었습니다. Job ID: {job_id}")
                 st.session_state[ACTIVE_JOB_KEY] = job_id
+                st.session_state[RUN_MODE_KEY] = False
 
 st.divider()
 
@@ -183,8 +219,11 @@ else:
     st.progress(progress, text=f"{progress*100:,.1f}% 진행")
 
     st.write(f"상태: **{active_job.status}** · Job ID: `{active_job.job_id}`")
+    policy_text = (
+        f"최근 {active_job.revalidate_recent_years}년 재검증" if active_job.revalidate_recent_years else "캐시 우선"
+    )
     st.caption(
-        f"기간 {active_job.start_year}~{active_job.end_year} · 대상 티커 {len(active_job.tickers)}개 · Force Refresh: {active_job.force_refresh}"
+        f"기간 {active_job.start_year}~{active_job.end_year} · 대상 티커 {len(active_job.tickers)}개 · Force Refresh: {active_job.force_refresh} · {policy_text}"
     )
 
     current_ticker = (
@@ -222,16 +261,17 @@ else:
     if action_cols[0].button("계속 실행 ▶", disabled=continue_disabled):
         resumed = resume_job(active_job.job_id)
         if resumed:
-            step_limit = st.session_state.get(STEP_LIMIT_KEY, 10)
-            updated = run_job_step(resumed.job_id, step_limit=step_limit)
             st.session_state[ACTIVE_JOB_KEY] = resumed.job_id
-            active_job = updated or resumed
+            st.session_state[RUN_MODE_KEY] = True
+            _trigger_rerun()
 
     pause_disabled = active_job.status != PrefetchJobStatus.RUNNING.value
     if action_cols[1].button("일시 중지 ⏸", disabled=pause_disabled):
         paused = pause_job(active_job.job_id)
         if paused:
             st.session_state[ACTIVE_JOB_KEY] = paused.job_id
+            st.session_state[RUN_MODE_KEY] = False
+            _trigger_rerun()
 
     cancel_disabled = active_job.status in (
         PrefetchJobStatus.CANCELLED.value,
@@ -241,6 +281,10 @@ else:
         cancelled = request_cancel(active_job.job_id)
         if cancelled:
             st.session_state[ACTIVE_JOB_KEY] = cancelled.job_id
+            st.session_state[RUN_MODE_KEY] = False
+            _trigger_rerun()
 
     if action_cols[3].button("작업 초기화 🔄"):
+        st.session_state[RUN_MODE_KEY] = False
         st.session_state.pop(ACTIVE_JOB_KEY, None)
+        _trigger_rerun()

@@ -4,13 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="DB 마이그레이션">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="배당정보 미리 가져오기 추가">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/TASKS.md" beforeDir="false" afterPath="$PROJECT_DIR$/TASKS.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/dart_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/dart_api.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/dps_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/dps_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/prefetch_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/prefetch_runner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/dividends.sqlite3" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pages/5_종목_검색.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/5_종목_검색.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pages/94_관리자_DART_배당_미리채우기.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/94_관리자_DART_배당_미리채우기.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -254,7 +256,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766927020408</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="배당정보 미리 가져오기 추가">
+      <option name="closed" value="true" />
+      <created>1766934728504</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1766934728504</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -270,6 +280,7 @@
     <MESSAGE value="대시보드에 현재가 및 평가손익 추가" />
     <MESSAGE value="페이지명 한글화 및 관리자 페이지로 분리" />
     <MESSAGE value="DB 마이그레이션" />
-    <option name="LAST_COMMIT_MESSAGE" value="DB 마이그레이션" />
+    <MESSAGE value="배당정보 미리 가져오기 추가" />
+    <option name="LAST_COMMIT_MESSAGE" value="배당정보 미리 가져오기 추가" />
   </component>
 </project>

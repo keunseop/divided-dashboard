@@ -22,6 +22,7 @@ class PrefetchJobView:
     status: str
     job_name: str | None
     tickers: list[str]
+    revalidate_recent_years: int
     start_year: int
     end_year: int
     reprt_code: str
@@ -44,6 +45,7 @@ def create_job(
     reprt_code: str = DEFAULT_REPRT_CODE,
     force_refresh: bool = False,
     job_name: str | None = None,
+    revalidate_recent_years: int = 0,
 ) -> str:
     normalized = _normalize_tickers(tickers)
     if not normalized:
@@ -51,14 +53,16 @@ def create_job(
 
     start, end = sorted((int(start_year), int(end_year)))
     reprt = reprt_code or DEFAULT_REPRT_CODE
+    recent_years = _normalize_recent_years(revalidate_recent_years)
 
     job_id = str(uuid4())
     with db_session() as session:
+        payload = _encode_job_payload(normalized, recent_years)
         job = PrefetchJob(
             job_id=job_id,
             status=PrefetchJobStatus.PAUSED.value,
             job_name=job_name,
-            tickers_json=json.dumps(normalized, ensure_ascii=False),
+            tickers_json=payload,
             start_year=start,
             end_year=end,
             reprt_code=reprt,
@@ -123,16 +127,17 @@ def run_job_step(job_id: str, step_limit: int = 1) -> PrefetchJobView | None:
         job = session.get(PrefetchJob, job_id)
         if not job:
             return None
+        tickers, options = _decode_job_payload(job.tickers_json)
+        recent_years = _extract_recent_years(options)
         if job.status not in (
             PrefetchJobStatus.RUNNING.value,
             PrefetchJobStatus.CANCELLED_REQUESTED.value,
         ):
-            return _to_view(job)
+            return _to_view_with_payload(job, tickers, recent_years)
 
-        tickers = json.loads(job.tickers_json or "[]")
         if not tickers:
             job.status = PrefetchJobStatus.DONE.value
-            return _to_view(job)
+            return _to_view_with_payload(job, tickers, recent_years)
 
         if job.cursor_year < job.start_year or job.cursor_year > job.end_year:
             job.cursor_year = job.start_year
@@ -148,7 +153,13 @@ def run_job_step(job_id: str, step_limit: int = 1) -> PrefetchJobView | None:
 
             ticker = tickers[job.cursor_index]
             current_year = job.cursor_year
-            continue_run = _process_single_step(session, job, ticker, current_year)
+            continue_run = _process_single_step(
+                session,
+                job,
+                ticker,
+                current_year,
+                revalidate_recent_years=recent_years,
+            )
             job.processed_count += 1
             steps += 1
             if not continue_run:
@@ -163,7 +174,7 @@ def run_job_step(job_id: str, step_limit: int = 1) -> PrefetchJobView | None:
                     break
 
         session.flush()
-        return _to_view(job)
+        return _to_view_with_payload(job, tickers, recent_years)
 
 
 def pause_job(job_id: str) -> PrefetchJobView | None:
@@ -194,13 +205,22 @@ def list_recent_jobs(limit: int = 10) -> List[PrefetchJobView]:
     return views
 
 
-def _process_single_step(session: Session, job: PrefetchJob, ticker: str, year: int) -> bool:
+def _process_single_step(
+    session: Session,
+    job: PrefetchJob,
+    ticker: str,
+    year: int,
+    *,
+    revalidate_recent_years: int = 0,
+) -> bool:
     reprt_code = job.reprt_code or DEFAULT_REPRT_CODE
     if not ticker:
         job.skip_count += 1
         return True
 
-    if not job.force_refresh and _has_cached_value(session, ticker, year, reprt_code):
+    force_this_step = job.force_refresh or _should_force_refresh(job, year, revalidate_recent_years)
+
+    if not force_this_step and _has_cached_value(session, ticker, year, reprt_code):
         job.skip_count += 1
         return True
 
@@ -211,7 +231,7 @@ def _process_single_step(session: Session, job: PrefetchJob, ticker: str, year: 
             start_year=year,
             end_year=year,
             reprt_code=reprt_code,
-            force_refresh=job.force_refresh,
+            force_refresh=force_this_step,
         )
     except DartApiUnavailable as exc:
         message = str(exc)
@@ -259,6 +279,59 @@ def _normalize_tickers(values: Sequence[str]) -> list[str]:
     return normalized
 
 
+def _encode_job_payload(tickers: list[str], recent_years: int) -> str:
+    payload = {
+        "tickers": tickers,
+        "options": {"revalidate_recent_years": _normalize_recent_years(recent_years)},
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _decode_job_payload(raw_payload: str | None) -> tuple[list[str], dict]:
+    if not raw_payload:
+        return [], {}
+    try:
+        data = json.loads(raw_payload)
+    except Exception:
+        return [], {}
+    if isinstance(data, dict):
+        tickers = data.get("tickers") or []
+        options = data.get("options") or {}
+    elif isinstance(data, list):
+        tickers = data
+        options = {}
+    else:
+        tickers = []
+        options = {}
+    cleaned: list[str] = []
+    for value in tickers:
+        ticker = normalize_ticker(value)
+        if ticker:
+            cleaned.append(ticker)
+    return cleaned, options if isinstance(options, dict) else {}
+
+
+def _extract_recent_years(options: dict | None) -> int:
+    if not options:
+        return 0
+    return _normalize_recent_years(options.get("revalidate_recent_years", 0))
+
+
+def _normalize_recent_years(value) -> int:
+    try:
+        number = int(value)
+    except Exception:
+        return 0
+    return max(0, min(2, number))
+
+
+def _should_force_refresh(job: PrefetchJob, year: int, revalidate_recent_years: int) -> bool:
+    if revalidate_recent_years <= 0:
+        return False
+    threshold = max(job.start_year, job.end_year - revalidate_recent_years + 1)
+    return year >= threshold
+
+
 def _is_missing_corp_code_error(message: str) -> bool:
     if not message:
         return False
@@ -293,12 +366,22 @@ def _mark_missing_step(session: Session, ticker: str, year: int, reprt_code: str
 
 
 def _to_view(job: PrefetchJob) -> PrefetchJobView:
-    tickers = json.loads(job.tickers_json or "[]")
+    tickers, options = _decode_job_payload(job.tickers_json)
+    recent_years = _extract_recent_years(options)
+    return _build_view(job, tickers, recent_years)
+
+
+def _to_view_with_payload(job: PrefetchJob, tickers: list[str], recent_years: int) -> PrefetchJobView:
+    return _build_view(job, tickers, recent_years)
+
+
+def _build_view(job: PrefetchJob, tickers: list[str], recent_years: int) -> PrefetchJobView:
     return PrefetchJobView(
         job_id=job.job_id,
         status=job.status,
         job_name=job.job_name,
         tickers=tickers,
+        revalidate_recent_years=recent_years,
         start_year=job.start_year,
         end_year=job.end_year,
         reprt_code=job.reprt_code,

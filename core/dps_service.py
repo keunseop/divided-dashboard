@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass, asdict
 from datetime import date
 from typing import Iterable, List
+import time
 
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
@@ -14,6 +15,8 @@ from core.utils import normalize_ticker
 
 PARSER_VERSION = "v1"
 DEFAULT_REPRT_CODE = "11011"
+FETCH_RETRY_LIMIT = 2
+FETCH_BACKOFF_SECONDS = 0.3
 
 _fetcher: DartDividendFetcher | None = None
 
@@ -32,6 +35,29 @@ def _get_fetcher() -> DartDividendFetcher:
     if _fetcher is None:
         _fetcher = DartDividendFetcher()
     return _fetcher
+
+
+def _fetch_records_with_retry(
+    fetcher: DartDividendFetcher,
+    ticker: str,
+    start_year: int,
+    end_year: int,
+) -> list:
+    attempts = 0
+    delay = FETCH_BACKOFF_SECONDS
+    while True:
+        try:
+            return fetcher.fetch_dividend_records(
+                ticker,
+                start_year=start_year,
+                end_year=end_year,
+            )
+        except DartApiUnavailable:
+            attempts += 1
+            if attempts > FETCH_RETRY_LIMIT:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 1.5)
 
 
 def _serialize_record(record) -> str:
@@ -98,7 +124,8 @@ def get_dps_series(
 
         if missing_years:
             fetcher = _get_fetcher()
-            records = fetcher.fetch_dividend_records(
+            records = _fetch_records_with_retry(
+                fetcher,
                 normalized,
                 start_year=min(missing_years),
                 end_year=max(missing_years),
