@@ -92,7 +92,7 @@ Acceptance:
 
 ## P2. UI — 관리자 수동 Prefetch(진행률/취소/재개)
 
-### Task P2-1: 관리자 페이지 `관리자_DART_배당_미리채우기` 구현
+### Task P2-1: 관리자 페이지 `관리자_DART_배당_미리채우기` 구현 (**완료**)
 파일 예: `pages/94_관리자_DART_배당_미리채우기.py`
 (관리자 비밀번호 게이트 적용)
 
@@ -133,18 +133,18 @@ UI 구성:
   - 예: 한 rerun 당 k=5~20 step 처리(너무 크면 UI 멈춤)
 
 Acceptance:
-- progress bar가 실시간으로 증가.
+- progress bar가 실시간으로 증가. ✅
 - 취소/일시정지 버튼이 즉시 반영.
 - 재개 시 이전 cursor 위치부터 다시 시작.
 
-### Task P2-2: “나중에 이어서” UX
+### Task P2-2: “나중에 이어서” UX (**완료**)
 - 페이지 상단에 최근 job 목록 표시(최근 10개)
   - job_name, created_at, status, progress%
   - “재개” 버튼(해당 job_id를 active_job_id로 선택)
 - DONE/CANCELLED도 목록에 남겨서 히스토리 확인 가능
 
 Acceptance:
-- 새로고침/앱 재시작 후에도(세션이 날아가도) DB에 저장된 job을 선택하여 재개 가능.
+- 새로고침/앱 재시작 후에도(세션이 날아가도) DB에 저장된 job을 선택하여 재개 가능. ✅
 
 ---
 

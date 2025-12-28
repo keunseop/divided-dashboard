@@ -98,17 +98,13 @@ def get_dps_series(
 
         if missing_years:
             fetcher = _get_fetcher()
-            try:
-                records = fetcher.fetch_dividend_records(
-                    normalized,
-                    start_year=min(missing_years),
-                    end_year=max(missing_years),
-                )
-            except DartApiUnavailable:
-                raise
-            else:
-                fetched_years = _upsert_records(session, normalized, reprt, records)
-                _mark_no_data_years(session, normalized, reprt, missing_years - fetched_years)
+            records = fetcher.fetch_dividend_records(
+                normalized,
+                start_year=min(missing_years),
+                end_year=max(missing_years),
+            )
+            fetched_years = _upsert_records(session, normalized, reprt, records)
+            _mark_no_data_years(session, normalized, reprt, missing_years - fetched_years)
 
         if force_refresh:
             existing_rows = session.execute(

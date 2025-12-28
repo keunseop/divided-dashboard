@@ -183,9 +183,17 @@ class DartDividendFetcher:
         stripped = ticker_or_name.strip().upper()
         digits = "".join(ch for ch in stripped if ch.isdigit())
         if digits:
-            corp_code = self._corp_code_by_stock.get(digits)
-            if corp_code:
-                return corp_code
+            candidates: list[str] = [digits]
+            if len(digits) < 6:
+                candidates.append(digits.zfill(6))
+            else:
+                preferred_hint = digits[:-1] + "0"
+                if preferred_hint not in candidates:
+                    candidates.append(preferred_hint)
+            for candidate in candidates:
+                corp_code = self._corp_code_by_stock.get(candidate)
+                if corp_code:
+                    return corp_code
         corp_code = self._corp_code_by_name.get(stripped)
         if corp_code:
             return corp_code

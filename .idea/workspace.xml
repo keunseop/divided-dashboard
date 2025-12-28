@@ -4,10 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="페이지명 한글화 및 관리자 페이지로 분리">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="DB 마이그레이션">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/TASKS.md" beforeDir="false" afterPath="$PROJECT_DIR$/TASKS.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/dart_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/dart_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/dps_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/dps_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/prefetch_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/prefetch_runner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/dividends.sqlite3" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -244,7 +246,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766925165081</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="DB 마이그레이션">
+      <option name="closed" value="true" />
+      <created>1766927020408</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1766927020408</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -259,6 +269,7 @@
     <MESSAGE value="현재 포지션 추가 기능" />
     <MESSAGE value="대시보드에 현재가 및 평가손익 추가" />
     <MESSAGE value="페이지명 한글화 및 관리자 페이지로 분리" />
-    <option name="LAST_COMMIT_MESSAGE" value="페이지명 한글화 및 관리자 페이지로 분리" />
+    <MESSAGE value="DB 마이그레이션" />
+    <option name="LAST_COMMIT_MESSAGE" value="DB 마이그레이션" />
   </component>
 </project>
