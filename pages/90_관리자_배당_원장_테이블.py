@@ -1,10 +1,14 @@
 import streamlit as st
 from sqlalchemy import select, desc
 
+from core.admin_gate import require_admin
 from core.db import db_session
 from core.models import DividendEvent, AccountType, TickerMaster
 
-st.title("2) Dividends Table")
+require_admin()
+
+st.title("관리자: 배당 원장 테이블")
+st.caption("배당 원장 데이터를 조회하고 아카이브 상태를 직접 조정합니다.")
 
 show_archived = st.checkbox("archived 포함", value=False)
 account_filter = st.selectbox("계좌", ["ALL", AccountType.TAXABLE.value, AccountType.ISA.value])
@@ -51,7 +55,6 @@ st.subheader("rowId로 archived 토글(간단한 수정 기능)")
 
 row_id = st.text_input("rowId")
 if st.button("archived 토글") and row_id:
-    from sqlalchemy import select
     with db_session() as s:
         obj = s.execute(select(DividendEvent).where(DividendEvent.row_id == row_id)).scalar_one_or_none()
         if obj is None:

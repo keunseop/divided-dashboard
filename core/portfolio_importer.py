@@ -48,6 +48,7 @@ POSITIONS_COLUMN_MAP = {
 
 SNAPSHOT_COLUMN_MAP = {
     "snapshotid": "external_id",
+    "snapshot_id": "external_id",
     "기준일": "snapshot_date",
     "snapshotdate": "snapshot_date",
     "date": "snapshot_date",
@@ -64,6 +65,24 @@ SNAPSHOT_COLUMN_MAP = {
     "note": "note",
     "source": "source",
 }
+
+
+def _drop_blank_columns(df: pd.DataFrame) -> pd.DataFrame:
+    stripped = {}
+    drop_cols: list[str] = []
+    for column in df.columns:
+        normalized = column.strip()
+        if not normalized or normalized.lower().startswith("unnamed"):
+            drop_cols.append(column)
+            continue
+        key = normalized.lower()
+        if key in stripped:
+            drop_cols.append(column)
+            continue
+        stripped[key] = column
+    if drop_cols:
+        df = df.drop(columns=drop_cols)
+    return df
 
 
 def _normalize_columns(df: pd.DataFrame, mapping: dict[str, str]) -> pd.DataFrame:
@@ -111,6 +130,7 @@ def _normalize_account(value: str | None, *, default: AccountType) -> AccountTyp
 
 def read_holding_positions_csv(uploaded_file) -> pd.DataFrame:
     df = pd.read_csv(uploaded_file, dtype=str).fillna("")
+    df = _drop_blank_columns(df)
     df = _normalize_columns(df, POSITIONS_COLUMN_MAP)
 
     required = ["ticker", "account_type", "quantity", "avg_buy_price_krw"]
@@ -182,6 +202,7 @@ def upsert_holding_positions(session, df: pd.DataFrame) -> ImportResult:
 
 def read_portfolio_snapshots_csv(uploaded_file) -> pd.DataFrame:
     df = pd.read_csv(uploaded_file, dtype=str).fillna("")
+    df = _drop_blank_columns(df)
     df = _normalize_columns(df, SNAPSHOT_COLUMN_MAP)
     required = ["snapshot_date", "account_type"]
     missing = [col for col in required if col not in df.columns]
@@ -198,6 +219,11 @@ def read_portfolio_snapshots_csv(uploaded_file) -> pd.DataFrame:
             df[column] = df[column].map(_to_float)
         else:
             df[column] = None
+    if "external_id" in df.columns:
+        df["external_id"] = df["external_id"].map(lambda v: (v or "").strip() or None)
+    else:
+        df["external_id"] = None
+
     if "note" in df.columns:
         df["note"] = df["note"].fillna("").map(lambda s: s.strip() or None)
     else:
@@ -215,10 +241,15 @@ def upsert_portfolio_snapshots(session, df: pd.DataFrame) -> ImportResult:
     inserted = 0
     updated = 0
     for row in df.to_dict("records"):
-        stmt = select(PortfolioSnapshot).where(
-            PortfolioSnapshot.snapshot_date == row["snapshot_date"],
-            PortfolioSnapshot.account_type == row["account_type"],
-        )
+        external_id = row.get("external_id")
+        stmt = select(PortfolioSnapshot)
+        if external_id:
+            stmt = stmt.where(PortfolioSnapshot.external_id == external_id)
+        else:
+            stmt = stmt.where(
+                PortfolioSnapshot.snapshot_date == row["snapshot_date"],
+                PortfolioSnapshot.account_type == row["account_type"],
+            )
         existing = session.execute(stmt).scalar_one_or_none()
         if existing:
             existing.contributed_krw = row.get("contributed_krw")
@@ -226,10 +257,13 @@ def upsert_portfolio_snapshots(session, df: pd.DataFrame) -> ImportResult:
             existing.valuation_krw = row.get("valuation_krw")
             existing.note = row.get("note")
             existing.source = row.get("source") or existing.source
+            if external_id:
+                existing.external_id = external_id
             updated += 1
         else:
             session.add(
                 PortfolioSnapshot(
+                    external_id=external_id,
                     snapshot_date=row["snapshot_date"],
                     account_type=row["account_type"],
                     contributed_krw=row.get("contributed_krw"),

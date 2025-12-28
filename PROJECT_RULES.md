@@ -62,6 +62,9 @@ Parsing rules:
 4) Alimtalk parser (later): ingest messages and fill tax/net fields.
 5) Stock finder module (later): data sources (KRX/DART/etc.), screening, charts, yield at current price.
 
+## Communication
+- 모든 사용자 응답은 가능한 범위에서 **한글**로 작성한다.
+
 ## Scope Clarification (Important)
 
 - This project does NOT compute user-specific investment returns.

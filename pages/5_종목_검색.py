@@ -15,7 +15,7 @@ from core.market_service import (
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import infer_market_from_ticker, normalize_ticker
 
-st.title("8) Ticker Search")
+st.title("종목 검색")
 
 st.caption(
     "티커를 직접 조회하여 최신 배당/가격 데이터를 확인합니다. "
@@ -51,7 +51,7 @@ history_years = st.slider(
     help="최근 N년 치 배당 데이터만 조회합니다.",
 )
 
-if st.button("Fetch") is False:
+if st.button("조회") is False:
     st.stop()
 
 manual_normalized = normalize_ticker(manual_ticker)

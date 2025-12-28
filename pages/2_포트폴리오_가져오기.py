@@ -13,7 +13,7 @@ from core.portfolio_importer import (
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import normalize_ticker
 
-st.title("10) Portfolio Imports")
+st.title("포트폴리오 가져오기")
 st.caption("보유 종목 LOT과 월별 스냅샷 CSV를 업로드하여 포트폴리오 데이터를 관리합니다.")
 
 st.header("현재 보유 포지션 업로드")
@@ -49,11 +49,13 @@ if positions_file is not None:
 
 st.divider()
 
-st.header("Portfolio Snapshots (월별 현황)")
+st.header("포트폴리오 스냅샷 (월별 현황)")
 st.write(
     """
 `portfolio_snapshots.csv` 예시 헤더:
 `snapshotId,기준일,계좌구분,누적원금,현금,평가금액,비고`
+
+- `snapshotId`는 선택 사항이지만, 동일 스냅샷을 다시 업로드할 때 고유 키로 사용됩니다.
 """
 )
 

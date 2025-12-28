@@ -1,11 +1,15 @@
 import streamlit as st
 from sqlalchemy import select
 
+from core.admin_gate import require_admin
 from core.db import db_session
 from core.models import TickerMaster
 from core.ticker_importer import read_ticker_master_csv, upsert_ticker_master
 
-st.title("4) Ticker Master")
+require_admin()
+
+st.title("관리자: 종목 마스터 관리")
+st.caption("Ticker Master 목록을 CSV로 일괄 갱신하거나 현재 등록 상태를 확인합니다.")
 
 uploaded = st.file_uploader(
     "ticker_master.csv 업로드 (필수: ticker,name_ko | 선택: market,currency)",

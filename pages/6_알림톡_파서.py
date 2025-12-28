@@ -14,11 +14,13 @@ from core.fx import fetch_fx_rate_frankfurter
 from core.models import AccountType, TickerMaster
 from core.utils import normalize_ticker
 
-st.title("6) Alimtalk Parser")
+ACCOUNT_OPTIONS = [acct.value for acct in AccountType if acct != AccountType.ALL]
+
+st.title("알림톡 파서")
 
 st.markdown(
     """
-알림톡 원문을 붙여넣고 `Parse` 버튼을 누르면 자동으로 금액/통화 정보를 추출합니다.
+알림톡 원문을 붙여넣고 `파싱` 버튼을 누르면 자동으로 금액/통화 정보를 추출합니다.
 
 - 국내 알림톡은 월/일 정보만 있으므로 **기본 연도**를 지정해 주세요.
 - 해외 알림톡은 날짜 자체가 없으므로 **기본 지급일**을 반드시 확인/수정하세요.
@@ -84,7 +86,7 @@ with st.form("alimtalk_parse_form"):
         index=0,
         help="필요 시 아래 테이블에서 개별 수정 가능합니다.",
     )
-    submitted = st.form_submit_button("Parse")
+    submitted = st.form_submit_button("파싱")
 
 if submitted:
     if not raw_input.strip():
@@ -328,5 +330,4 @@ if rows:
                 st.session_state["alimtalk_rows"] = []
                 _force_rerun()
 else:
-    st.info("먼저 알림톡 원문을 입력하고 Parse 버튼을 눌러 주세요.")
-ACCOUNT_OPTIONS = [acct.value for acct in AccountType if acct != AccountType.ALL]
+    st.info("먼저 알림톡 원문을 입력하고 파싱 버튼을 눌러 주세요.")

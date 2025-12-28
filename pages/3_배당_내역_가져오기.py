@@ -3,7 +3,8 @@ import streamlit as st
 from core.db import db_session
 from core.importer import read_and_normalize_csv, upsert_dividends
 
-st.title("1) CSV Import")
+st.title("배당 내역 가져오기")
+st.caption("Excel에서 내려받은 CSV를 업로드하여 배당 원장과 동기화합니다.")
 
 sync_mode = st.checkbox("동기화 모드 (CSV에 없는 기존 excel 데이터는 archived 처리)", value=True)
 

@@ -119,6 +119,12 @@ class PortfolioSnapshot(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    external_id: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        unique=True,
+        doc="Optional source system identifier (e.g., snapshotId from CSV).",
+    )
     snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     account_type: Mapped[AccountType] = mapped_column(
         Enum(AccountType), nullable=False, default=AccountType.ALL

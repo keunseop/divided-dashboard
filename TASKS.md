@@ -1,216 +1,141 @@
-# Tasks
+# TASKS.md — 사이드바 메뉴 정리 + Admin 비밀번호 게이트(로그인/유저DB 없이)
 
-## Project Context
-- Streamlit multipage app + SQLite + SQLAlchemy.
-- We already manage:
-  - Dividend events imported from Excel CSV (`dividend_events`)
-  - Ticker master (`ticker_master`)
-  - FX rates and DART dividend lookup (DART URL API, not OpenDartReader module)
-- New goal: add **portfolio contribution / valuation tracking** and **per-ticker position summary**.
-- User contributes **KRW 600,000 per month** into a dividend account.
-- There are 2 accounts: TAXABLE(일반) and ISA.
-- Requirements include:
-  - Total invested amount (매수 원금) trend
-  - Current valuation (평가금액) trend
-  - Cash (현금) trend
-  - Per-ticker: average buy price, quantity, market price, P/L (+/-)
-  - Per-ticker: show dividend trend together (from our existing dividend datasets)
+## 목표
+- Streamlit 좌측 메뉴를 “회원(일반 사용자)” 중심으로 재구성한다.
+- 로그인/회원가입/유저 테이블은 **지금 단계에서 구현하지 않는다.**
+- 대신 “관리자 메뉴”에 들어갈 때만 **관리자 비밀번호를 요구**하는 방식으로 접근 제어한다.
+- 메뉴명/페이지 제목은 **한글**로 통일한다.
 
-## Scope / Rules
-- We DO compute user-specific holdings metrics in this feature set:
-  - average buy price, quantity, valuation, P/L.
-- We do NOT need brokerage integration; data entry can be via CSV imports (Excel source of truth).
-- Keep DB as the canonical store after import. Do not require live network calls for holdings.
-- UI should format KRW with thousands separators and "원".
+현재 페이지 목록:
+1) import_csv
+2) dividends_table
+3) dashboard
+4) ticker_master
+5) missing_ticker
+6) alimtalk_parser
+7) held_ticker_trends
+8) ticker_search
+9) dart_single_fetch
+10) portfolio_imports
 
 ---
 
-# P0: Data Model for Contributions / Cash / Holdings
+## P0. 메뉴 정보구조(IA) 확정
 
-## Task P0-1: Add new tables/models
-Add SQLAlchemy models + create tables:
+### Task P0-1: 최종 메뉴 그룹/라벨(한글) 정의
+일반 사용자(기본):
+- **대시보드**
+- **포트폴리오 가져오기** (portfolio_imports)
+- **배당 내역 가져오기** (import_csv)
+- **보유 종목 배당 추이** (held_ticker_trends)
+- **종목 검색** (ticker_search)
+- **알림톡 파서** (alimtalk_parser)
 
-### 1) `portfolio_snapshots` (time-series of totals)
-- snapshot_id (PK autoincrement)
-- snapshot_date (date)  # monthly or arbitrary
-- account_type (enum: TAXABLE/ISA/ALL)
-- contributed_krw (float)  # 누적 납입/입금 원금 (e.g., monthly 600k)
-- cash_krw (float)         # snapshot cash balance
-- valuation_krw (float)    # total market value of holdings at snapshot_date (optional if not provided)
-- note (text, optional)
-- source (str: "excel"|"manual")
+관리자(게이트 필요):
+- **[관리자] 배당 원장 테이블** (dividends_table)
+- **[관리자] 종목 마스터 관리** (ticker_master)
+- **[관리자] 미등록 티커 확인** (missing_ticker)
+- **[관리자] DART 단건 조회(디버그)** (dart_single_fetch)
 
-### 2) `holding_positions` (per-account aggregated position)
-- id (PK)
-- ticker (str, 32)
-- account_type (enum)
-- quantity (float)
-- avg_buy_price_krw (float)
-- total_cost_krw (float)  # quantity * avg price
-- note (text, optional)
-- source ("excel"|"manual")
+산출물:
+- `docs/menu_structure.md` (간단한 문서: 메뉴 구성/매핑/설명)
 
 Acceptance:
-- Models exist; tables created; basic CRUD works.
-- Use `String(32)` for ticker to support KR + US tickers.
-
-## Task P0-2: Decide the user input format (CSV)
-We will keep Excel as source of truth. Create CSV schemas:
-
-1) `holding_positions.csv` (현재 보유 잔고)
-Header example:
-종목코드,계좌구분,수량,평균매입가(원),비고
-- 평균 매입가는 원화 기준.
-- 계좌구분: 일반->TAXABLE, ISA->ISA
-
-2) `portfolio_snapshots.csv` (optional if we track cash & totals monthly)
-Header example:
-snapshotId,기준일,계좌구분,누적원금,현금,평가금액,비고
-
-Acceptance:
-- Importers handle Korean headers and normalize values.
-- Duplicate/blank columns are ignored.
-- "-" treated as null.
+- 위 구성이 docs에 정리되어 있고, 기존 페이지가 모두 어디로 가는지 매핑됨.
 
 ---
 
-# P1: Holdings Calculator (per ticker, per account)
+## P1. Admin 비밀번호 게이트(로그인 없이)
 
-## Task P1-1: Compute position from lots
-Implement logic that produces current position per ticker (per account):
-- total_qty = running quantity (start from CSV baseline, then add manual buys)
-- avg_buy_price_krw = weighted average cost as buys are appended
-- invested_cost_krw = total_qty * avg_buy_price_krw
-- (Optional) realized P/L can be computed later.
+### Task P1-1: 관리자 접근 제어 유틸 추가
+`core/admin_gate.py` 생성:
 
-Acceptance:
-- Given sample lots, position outputs correct qty and avg price.
-- Handles partial sells.
-
-## Task P1-2: Store derived positions (optional)
-Optionally store computed positions into `holdings_positions` table for faster UI.
-Or compute on-the-fly in the dashboard.
+기능:
+- `is_admin_unlocked() -> bool`
+- `require_admin()` : 관리자 비밀번호 입력 UI(한 번만) + 성공 시 session_state에 플래그 저장
+- `lock_admin()` : 관리자 잠금(세션 플래그 해제)
+- 비밀번호는 코드에 하드코딩하지 말고 `st.secrets["ADMIN_PASSWORD"]` 또는 환경변수로 읽기
+- 실패 시: 경고 메시지 + `st.stop()`
 
 Acceptance:
-- Dashboard can render within 1s for typical dataset size.
+- 관리자 페이지에 들어가면 비밀번호 입력이 뜨고, 맞으면 페이지가 열림.
+- 새로고침/재접속 시(세션이 날아가면) 다시 요구할 수 있음(OK).
+- 일반 메뉴에는 영향 없음.
+
+### Task P1-2: 모든 관리자 페이지 상단에 게이트 적용
+다음 페이지들 맨 위에 `require_admin()` 호출 추가:
+- dividends_table
+- ticker_master
+- missing_ticker
+- dart_single_fetch
+
+Acceptance:
+- 비밀번호 없이 관리자 페이지 접근 불가.
+- 비밀번호 입력 후 정상 표시.
 
 ---
 
-# P2: Market Price Integration (for valuation / P&L)
+## P2. 페이지 파일명/정렬/한글 타이틀 정리
 
-## Task P2-1: Price input method
-Since KR network sources can be unreliable, avoid mandatory live calls.
-Support two modes:
-- Manual price import CSV (`prices.csv`)
-- Optional provider-based live fetch for US (yfinance) and KR (later)
+### Task P2-1: 페이지 파일명 변경(사이드바 정렬)
+Streamlit은 파일명(접두 숫자)로 정렬되므로 아래처럼 변경한다.
 
-Schema `prices.csv`:
-asOfDate,ticker,price,currency,fxRate,priceKrw
+일반 사용자:
+- `pages/1_대시보드.py` (기존 dashboard)
+- `pages/2_포트폴리오_가져오기.py` (기존 portfolio_imports)
+- `pages/3_배당_내역_가져오기.py` (기존 import_csv)
+- `pages/4_보유_종목_배당_추이.py` (기존 held_ticker_trends)
+- `pages/5_종목_검색.py` (기존 ticker_search)
+- `pages/6_알림톡_파서.py` (기존 alimtalk_parser)
 
-Acceptance:
-- App can compute valuation_krw = qty * priceKrw.
-
-## Task P2-2: Valuation + P/L computation
-For each ticker:
-- market_price_krw
-- valuation_krw = qty * market_price_krw
-- cost_basis_krw = qty * avg_buy_price_krw
-- pnl_krw = valuation_krw - cost_basis_krw
-- pnl_pct = pnl_krw / cost_basis_krw
+관리자:
+- `pages/90_관리자_배당_원장_테이블.py` (기존 dividends_table)
+- `pages/91_관리자_종목_마스터_관리.py` (기존 ticker_master)
+- `pages/92_관리자_미등록_티커_확인.py` (기존 missing_ticker)
+- `pages/93_관리자_DART_단건_조회.py` (기존 dart_single_fetch)
 
 Acceptance:
-- Per ticker table shows + / - indicator and formatted values.
+- 사이드바 메뉴가 위 순서대로 표시됨.
+- 관리자 메뉴는 맨 아래에 모임.
+
+### Task P2-2: 각 페이지 타이틀/설명 한글 통일
+각 페이지에서 `st.title()` / `st.caption()`을 한글로 정리한다.
+예:
+- 대시보드: “대시보드”
+- 배당 내역 가져오기: “배당 내역 가져오기(CSV)”
+- 포트폴리오 가져오기: “포트폴리오 가져오기”
+- 관리자 페이지: “관리자: …”
+
+Acceptance:
+- 페이지 제목이 파일명/메뉴명과 일치.
+- 혼합된 영문/스네이크케이스 제목 제거.
 
 ---
 
-# P3: UI / Dashboard Enhancements
+## P3. UX: 관리자 잠금/해제 버튼(선택)
 
-## Task P3-1: Portfolio Overview dashboard card
-Add to Dashboard page:
-- Total contributed_krw (if snapshots exist) OR sum of BUY krw_amount as "invested"
-- Total valuation_krw (sum over tickers)
-- Total cash_krw (from snapshots or manual input)
-- Total P/L and P/L%
-
-Charts:
-- Time-series chart of contributed vs valuation vs cash (from `portfolio_snapshots`)
-- If snapshots not provided, show only current totals.
+### Task P3-1: 사이드바에 “관리자 잠금/해제” 섹션 추가
+- 일반 사용자 메뉴 하단에:
+  - “관리자 잠금 해제” 버튼(누르면 require_admin 흐름)
+  - 관리자 해제된 상태면 “관리자 잠금” 버튼 표시
+- 단, “관리자 메뉴”를 누르지 않아도 미리 풀 수 있게 제공
 
 Acceptance:
-- KRW values formatted with commas and "원".
-- No SQLAlchemy DetachedInstanceError (convert inside session).
-
-## Task P3-2: Holdings table widget
-Create a table:
-Columns:
-- ticker
-- name_ko (join ticker_master)
-- account_type (filter)
-- qty
-- avg_buy_price_krw
-- market_price_krw
-- cost_basis_krw
-- valuation_krw
-- pnl_krw, pnl_pct
-- status: "+" / "-" / "N/A"
-
-Interactions:
-- filter by account_type (ALL/TAXABLE/ISA)
-- search ticker
-
-Acceptance:
-- Works with KR + US tickers.
-
-## Task P3-3: Ticker detail view (combined holdings + dividends)
-When user clicks/selects a ticker:
-- Show holdings summary (qty, avg price, pnl)
-- Show dividend trend:
-  - from existing dividend_events cashflow (krwGross) by year/month
-  - and/or DART dividend per share trend if available
-- Charts:
-  - annual dividend cashflow (KRW) from dividend_events
-  - annual DPS series (if we store DART results)
-- Provide notes if dividend data missing.
-
-Acceptance:
-- "Single ticker" page works end-to-end for a ticker in both holdings and dividend_events.
+- 관리자가 편하게 토글 가능.
+- 일반 사용자는 버튼 눌러도 비밀번호 없으면 풀리지 않음.
 
 ---
 
-# P4: Import Pages
-
-## Task P4-1: Add "Import Holdings Lots CSV" page
-- Upload CSV
-- Preview
-- Import button
-- Upsert by tradeId
-- Sync mode optional (archive missing trades rather than delete)
-
-## Task P4-2: Add "Import Portfolio Snapshots CSV" page
-- Upload CSV
-- Preview
-- Import button
-- Upsert by snapshotId
-
-## Task P4-3: Add "Import Prices CSV" page
-- Upload CSV
-- Preview
-- Import button
-- Upsert by (asOfDate, ticker)
-
-Acceptance:
-- All imports provide success counts inserted/updated/archived candidates.
+## 제외(이번 범위에서 하지 않음)
+- 로그인/회원가입
+- user_id/portfolio_id 등 멀티유저 DB 스키마 변경
+- 권한(Role) 테이블/세션 영구 저장
 
 ---
 
-# Notes / Implementation Guidance
-- Use ticker normalization: `strip().upper()`
-- Account type normalization:
-  - "일반" -> TAXABLE
-  - "ISA" -> ISA
-- Keep the app stable without network calls. Live price fetching is optional.
-- Ensure all monetary outputs use thousand separators.
-
-## P5 
-- [ ] Dashboard 의 top 15 종목에 대하여, 각 종목별 전체 배당엑 대비 차지하는 비율을 표시해줄 수 있는 원형 차트를 그려줘.
-  - 1~15개 종목 + 기타 종목 해서 16개 종목의 비율이겠지
+## 구현 메모
+- 비밀번호는 `st.secrets`를 우선 사용:
+  - `.streamlit/secrets.toml`에 `ADMIN_PASSWORD="..."` 설정
+- 게이트 상태 저장:
+  - `st.session_state["admin_unlocked"] = True/False`
+- 관리자 페이지는 “숨기기”보다는 “접근 시 비밀번호 요구”로 충분.

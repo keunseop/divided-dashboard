@@ -7,13 +7,14 @@ import streamlit as st
 
 from sqlalchemy import select
 
+from core.admin_gate import require_admin
 from core.dart_api import DartApiUnavailable, DartDividendFetcher
 from core.db import db_session
 from core.models import DividendCache
 from core.ui_autocomplete import render_ticker_autocomplete
-from core.utils import normalize_ticker
 fetcher = DartDividendFetcher()
 CACHE_KEY = "dart_single_cache"
+STATE_KEY = "dart_single_state"
 
 
 def _cache_bucket() -> dict:
@@ -26,9 +27,9 @@ def _get_cached_records(cache_key: str):
 
 def _set_cached_records(cache_key: str, records):
     _cache_bucket()[cache_key] = records
+require_admin()
 
-
-st.title("9) 단일 DART 배당 조회")
+st.title("관리자: DART 단건 조회")
 st.caption("보유 종목을 한 건씩 조회하여 최근 배당 공시를 확인하고 수동으로 저장합니다.")
 history_years = st.slider(
     "조회 연도 범위 (최근 N년)",
@@ -39,64 +40,91 @@ history_years = st.slider(
 )
 force_refresh = st.checkbox("강제 재조회", value=False, help="이미 조회했던 종목이라도 DART API를 다시 호출합니다.")
 
-manual_ticker = st.text_input(
-    "티커 입력",
-    value="",
-    placeholder="예: 삼성전자 또는 005930",
-    help="국내 종목은 자동완성에서 선택하고, 해외 등 미등록 종목은 직접 입력하세요.",
-)
-
 selected_candidate = render_ticker_autocomplete(
-    query=manual_ticker,
     label="자동완성 (국내 종목)",
     key="dart_single_autocomplete",
-    help_text="입력 후 원하는 국내 종목을 선택하면 자동으로 적용됩니다.",
+    help_text="국내 종목명을 입력하고 목록에서 선택해 주세요.",
     limit=25,
-    show_input=False,
+    show_input=True,
 )
 
-if st.button("조회", use_container_width=True) is False:
-    st.stop()
+state = st.session_state.setdefault(STATE_KEY, {})
+existing_result = state.get("result")
 
-manual_ticker_value = normalize_ticker(manual_ticker)
-if selected_candidate:
+selected_ticker = selected_candidate.ticker if selected_candidate else None
+input_snapshot = {
+    "selected_ticker": selected_ticker,
+    "history_years": history_years,
+}
+
+fetch_clicked = st.button("조회", use_container_width=True)
+
+result = existing_result
+if fetch_clicked:
+    if not selected_candidate:
+        st.warning("자동완성에서 종목을 선택해 주세요.")
+        st.stop()
     target_ticker = selected_candidate.ticker
     target_name = selected_candidate.name_ko
-elif manual_ticker_value:
-    target_ticker = manual_ticker_value
-    target_name = manual_ticker.strip() or manual_ticker_value
-else:
-    st.warning("자동완성에서 종목을 선택하거나 직접 티커를 입력해 주세요.")
+
+    current_year = date.today().year
+    start_year = max(current_year - history_years + 1, 2000)
+    cache_key = f"{target_ticker}|{start_year}|{current_year}"
+    from_cache = False
+    records = None
+
+    if not force_refresh:
+        cached = _get_cached_records(cache_key)
+        if cached:
+            records = cached
+            from_cache = True
+
+    if records is None:
+        try:
+            records = fetcher.fetch_dividend_records(
+                target_ticker,
+                start_year=start_year,
+                end_year=current_year,
+            )
+            _set_cached_records(cache_key, records)
+        except DartApiUnavailable as exc:
+            st.error(f"DART 조회에 실패했습니다: {exc}")
+            st.stop()
+        except Exception as exc:
+            st.error(f"예상치 못한 오류가 발생했습니다: {exc}")
+            st.stop()
+
+    if not records:
+        st.warning("조회된 배당 공시가 없습니다.")
+        st.stop()
+
+    result = {
+        "target_ticker": target_ticker,
+        "target_name": target_name,
+        "start_year": start_year,
+        "current_year": current_year,
+        "records": records,
+        "from_cache": from_cache,
+        "input_snapshot": input_snapshot,
+    }
+    state["result"] = result
+
+if not result:
+    st.info("자동완성에서 종목을 선택한 뒤 '조회' 버튼을 눌러 주세요.")
     st.stop()
 
-current_year = date.today().year
-start_year = max(current_year - history_years + 1, 2000)
+previous_snapshot = result.get("input_snapshot")
+if previous_snapshot and previous_snapshot != input_snapshot:
+    st.warning("입력값이 변경되었습니다. '조회' 버튼을 눌러 결과를 갱신해 주세요.")
+
+target_ticker = result["target_ticker"]
+target_name = result["target_name"]
+start_year = result["start_year"]
+current_year = result["current_year"]
+records = result["records"]
+from_cache = result["from_cache"]
 
 st.info(f"{target_name} ({target_ticker}) - {start_year}년 이후 공시를 조회합니다.")
-
-cache_key = f"{target_ticker}|{start_year}|{current_year}"
-from_cache = False
-records = None
-if not force_refresh:
-    cached = _get_cached_records(cache_key)
-    if cached:
-        records = cached
-        from_cache = True
-
-if records is None:
-    try:
-        records = fetcher.fetch_dividend_records(target_ticker, start_year=start_year, end_year=current_year)
-        _set_cached_records(cache_key, records)
-    except DartApiUnavailable as exc:
-        st.error(f"DART 조회에 실패했습니다: {exc}")
-        st.stop()
-    except Exception as exc:
-        st.error(f"예상치 못한 오류가 발생했습니다: {exc}")
-        st.stop()
-
-if not records:
-    st.warning("조회된 배당 공시가 없습니다.")
-    st.stop()
 
 if from_cache:
     st.success("저장된 최근 결과를 불러왔습니다. 강제 재조회를 체크하면 새로 조회합니다.")
@@ -205,5 +233,5 @@ def _persist_records(ticker: str, entries):
 
 
 if st.button("배당 정보 저장", type="primary"):
-    inserted, updated = _persist_records(target.ticker, records)
+    inserted, updated = _persist_records(target_ticker, records)
     st.success(f"저장 완료: 신규 {inserted}건, 갱신 {updated}건")

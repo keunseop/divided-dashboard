@@ -2,13 +2,15 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy import select
 
+from core.admin_gate import require_admin
 from core.db import db_session
 from core.models import DividendEvent, TickerMaster
 from core.ticker_importer import upsert_ticker_master
 
-st.title("5) Missing Tickers")
+require_admin()
 
-st.caption("DividendEvent에는 존재하는데 TickerMaster에는 없는 ticker 목록이니, 내려받아 name_ko를 채운 후 Ticker Master에서 다시 Import하세요.")
+st.title("관리자: 미등록 티커 확인")
+st.caption("배당 원장에는 존재하지만 Ticker Master에 없는 티커를 찾아 CSV로 내보내고 즉시 추가할 수 있습니다.")
 
 with db_session() as s:
     ev_tickers = (

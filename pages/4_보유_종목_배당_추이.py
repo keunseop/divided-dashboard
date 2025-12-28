@@ -21,7 +21,7 @@ from core.models import DividendEvent, TickerMaster
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import infer_market_from_ticker, normalize_ticker
 
-st.title("7) Held Tickers Dividend Trend")
+st.title("보유 종목 배당 추이")
 st.caption(
     "보유(또는 관심) 종목을 직접 선택하여 최근 배당 추이와 성장 지표를 확인합니다. "
     "선택한 종목만 조회하므로 과도한 API 호출 없이 필요한 종목을 빠르게 살펴볼 수 있습니다."

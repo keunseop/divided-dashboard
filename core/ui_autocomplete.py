@@ -12,17 +12,36 @@ except ImportError:  # pragma: no cover - optional dependency
 _SEARCHBOX_CACHE_KEY = "_ticker_autocomplete_cache"
 
 
-def _store_suggestions(key: str, suggestions: list[TickerSuggestion]) -> None:
+def _cache_entry(key: str) -> dict:
+    """Ensure cache entry exists and normalize legacy structures."""
     bucket = st.session_state.setdefault(_SEARCHBOX_CACHE_KEY, {})
-    bucket[key] = {suggestion.display: suggestion for suggestion in suggestions}
+    entry = bucket.get(key)
+    if entry is None:
+        entry = {"options": {}, "selection": None}
+    elif "options" not in entry or "selection" not in entry:
+        options = entry if isinstance(entry, dict) else {}
+        entry = {"options": options, "selection": None}
+    bucket[key] = entry
+    return entry
+
+
+def _store_suggestions(key: str, suggestions: list[TickerSuggestion]) -> None:
+    entry = _cache_entry(key)
+    entry["options"] = {suggestion.display: suggestion for suggestion in suggestions}
+    if entry["selection"] not in entry["options"]:
+        entry["selection"] = None
 
 
 def _pick_suggestion_from_cache(key: str, selection: str | None) -> TickerSuggestion | None:
-    if not selection:
+    entry = _cache_entry(key)
+    target_selection = selection if selection else entry.get("selection")
+    if not target_selection:
         return None
-    bucket = st.session_state.get(_SEARCHBOX_CACHE_KEY, {})
-    mapping = bucket.get(key, {})
-    return mapping.get(selection)
+
+    suggestion = entry["options"].get(target_selection)
+    if selection:
+        entry["selection"] = target_selection if suggestion else None
+    return suggestion
 
 
 def render_ticker_autocomplete(
