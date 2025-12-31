@@ -1,0 +1,7 @@
+{
+  "env": "prod",
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ0b2tlbiIsImF1ZCI6IjIwYjViNjE0LTk1MTUtNDk5Yi1iMWZlLWI5NTEwYTFkNGY1YSIsInByZHRfY2QiOiIiLCJpc3MiOiJ1bm9ndyIsImV4cCI6MTc2NzI0ODExNywiaWF0IjoxNzY3MTYxNzE3LCJqdGkiOiJQUzN4bGh5YWJOdWZ4Z2s5TzBKbWprU3lvWTQ5eWtwSXNacDYifQ.lnUQeW6vdjs3q8wYOHEKCtFGwBzsMw42rqey9MI8of4m8iWljZYPEdOOYm4boF3YgvX3EsQrPVnWmqADCwDKMg",
+  "issued_at": 1767161714,
+  "expired_at": 1767248054,
+  "expires_in": 86400
+}

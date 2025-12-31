@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -12,6 +12,9 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from core.dart_api import DartApiUnavailable, DartDividendFetcher
+from core.kis.domestic_quotes import fetch_domestic_price_now
+from core.kis.overseas_quotes import fetch_overseas_price_history, fetch_overseas_price_now
+from core.kis.settings import get_kis_setting
 from core.models import DividendCache, DividendEvent, PriceCache
 from core.utils import normalize_market_code, normalize_ticker
 
@@ -232,6 +235,111 @@ class KRYFinanceProvider(BaseYFinanceProvider):
         return deduped
 
 
+class KISDomesticPriceProvider(MarketDataProvider):
+    """KIS-backed provider for KR current price."""
+
+    name = "kis-kr"
+
+    def _fetch_current_price(self, ticker: str) -> PriceQuote:
+        data = fetch_domestic_price_now(ticker)
+        last = data.get("last")
+        if last is None:
+            raise ValueError(f"{ticker}: KIS 국내 현재가 응답에 가격이 없습니다.")
+        as_of = data.get("as_of") or datetime.utcnow()
+        return PriceQuote(
+            ticker=ticker,
+            price=float(last),
+            currency="KRW",
+            as_of=as_of,
+            source=self.name,
+        )
+
+    def _fetch_dividend_history(
+            self,
+            ticker: str,
+            *,
+            start_date: date | None = None,
+            end_date: date | None = None,
+    ) -> list[DividendPoint]:
+        raise NotImplementedError("KIS 국내 배당 내역은 지원하지 않습니다.")
+
+
+class KISOverseasPriceProvider(MarketDataProvider):
+    """KIS-backed provider for overseas current price with yfinance dividends."""
+
+    name = "kis-overseas"
+
+    def __init__(
+        self,
+        *,
+        dividend_provider: MarketDataProvider | None = None,
+        history_lookback_days: int | None = None,
+    ) -> None:
+        self._dividend_provider = dividend_provider or USProviderYFinance()
+        configured = get_kis_setting("KIS_OVERSEAS_PRICE_LOOKBACK_DAYS")
+        if history_lookback_days is not None:
+            self._history_lookback_days = max(history_lookback_days, 1)
+        elif configured:
+            try:
+                self._history_lookback_days = max(int(configured), 1)
+            except ValueError:
+                self._history_lookback_days = 10
+        else:
+            self._history_lookback_days = 10
+
+    def _market_candidates(self) -> list[str]:
+        raw = get_kis_setting("KIS_OVERSEAS_MARKET_PRIORITY")
+        if raw:
+            items = [item.strip() for item in raw.split(",") if item.strip()]
+            if items:
+                return items
+        return ["NAS", "NYS", "AMS"]
+
+    def _market_currency(self, market: str) -> str:
+        upper = market.strip().upper()
+        if upper in {"NAS", "NASDAQ", "NYS", "NYSE", "AMS"}:
+            return "USD"
+        return "USD"
+
+    def _fetch_current_price(self, ticker: str) -> PriceQuote:
+        last_error: Exception | None = None
+        for market in self._market_candidates():
+            try:
+                data = fetch_overseas_price_now(market, ticker)
+                last = data.get("last")
+                if last is None:
+                    raise ValueError("missing last price")
+                as_of = data.get("as_of") or datetime.utcnow()
+                currency = str(data.get("currency") or self._market_currency(market)).upper()
+                return PriceQuote(
+                    ticker=ticker,
+                    price=float(last),
+                    currency=currency,
+                    as_of=as_of,
+                    source=self.name,
+                )
+            except Exception as exc:  # pragma: no cover - network errors
+                last_error = exc
+                continue
+        msg = f"{ticker}: KIS 해외 현재가 조회에 실패했습니다."
+        if last_error:
+            msg = f"{msg} ({last_error})"
+        raise ValueError(msg)
+
+    def _fetch_dividend_history(
+            self,
+            ticker: str,
+            *,
+            start_date: date | None = None,
+            end_date: date | None = None,
+    ) -> list[DividendPoint]:
+        return self._dividend_provider._fetch_dividend_history(  # type: ignore[attr-defined]
+            ticker,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+
 class KRLocalProvider(MarketDataProvider):
     """KR provider that uses local cache/snapshots for price and dividend_events for dividends."""
 
@@ -388,18 +496,20 @@ class KRLocalProvider(MarketDataProvider):
 
 
 class KRDartProvider(MarketDataProvider):
-    """KR provider that sources dividends from DART and prices from KRLocalProvider."""
+    """KR provider that sources dividends from DART and prices from a configurable provider."""
 
     name = "dart-kr"
 
     def __init__(
             self,
             *,
-            price_provider: KRLocalProvider | None = None,
+            price_provider: MarketDataProvider | None = None,
             dividend_fetcher: DartDividendFetcher | None = None,
+            dividend_fallback_provider: MarketDataProvider | None = None,
     ) -> None:
         self.price_provider = price_provider or KRLocalProvider()
         self.dividend_fetcher = dividend_fetcher or DartDividendFetcher()
+        self.dividend_fallback_provider = dividend_fallback_provider or KRLocalProvider()
 
     def get_current_price(self, session: Session, ticker: str) -> PriceQuote:
         return self.price_provider.get_current_price(session, ticker)
@@ -447,12 +557,14 @@ class KRDartProvider(MarketDataProvider):
             )
 
         if not points:
-            return self.price_provider.get_dividend_history(
-                session,
-                normalized,
-                start_date=start_date,
-                end_date=end_date,
-            )
+            if self.dividend_fallback_provider:
+                return self.dividend_fallback_provider.get_dividend_history(
+                    session,
+                    normalized,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            return []
 
         _upsert_dividend_cache(session, points)
         return points
@@ -488,8 +600,8 @@ class KRExperimentalKRXProvider(MarketDataProvider):
         raise NotImplementedError("KRX scraping provider is experimental and not enabled by default.")
 
 
-register_market_provider("US", USProviderYFinance())
-register_market_provider("KR", KRDartProvider())
+register_market_provider("US", KISOverseasPriceProvider())
+register_market_provider("KR", KRDartProvider(price_provider=KISDomesticPriceProvider()))
 
 
 def _upsert_price_cache(session: Session, quote: PriceQuote) -> None:

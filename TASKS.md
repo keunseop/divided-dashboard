@@ -1,189 +1,140 @@
-# TASKS.md — DART 배당 DB화 + Write-through 캐시 + 수동 Prefetch(관리자, 진행률/취소/재개)
+# TASK.md — KIS OpenAPI 국내/해외 시세: open-trading-api/examples_llm 참고하여 구현
 
 ## 목표
-- DART DPS 데이터를 DB에 영속 캐시로 저장.
-- 조회 시 DB 우선 + 누락분만 DART 호출(write-through).
-- 자동 스케줄 없이, **관리자 페이지에서 수동 Prefetch** 수행.
-- Prefetch 실행 중:
-  - 진행률 표시
-  - 중간 취소
-  - 다음 실행 시 “이어서(재개)” 가능
+- Streamlit 종목 검색 화면에서 국내/해외 “현재가” 및 “5년 가격 차트(일/주/월)” 표시
+- 데이터 소스: 한국투자증권(KIS) OpenAPI
+- 구현 시 반드시 한국투자증권 공식 GitHub 샘플을 기준으로 TR_ID/파라미터/도메인(실전/모의)을 맞춘다.
+
+공식 참고자료:
+- koreainvestment/open-trading-api 저장소의 examples_llm 폴더(기능별 chk_*.py 샘플) :contentReference[oaicite:1]{index=1}
 
 ---
 
-## P0. DB 스키마/모델
+## P0. 샘플 레포 받아서 “정답 스펙” 확인
 
-### Task P0-1: `dividend_dps_cache` 테이블/모델 (**완료**)
-(기존 Task 유지)
-- Unique: (ticker, fiscal_year, reprt_code)
-- 저장: dps_cash, raw_payload, fetched_at/updated_at, parser_version, etc.
-
-Acceptance:
-- DB에 저장/조회 가능. ✅
-
-### Task P0-2: Prefetch 작업 상태 테이블 `prefetch_jobs` (**완료**)
-새 모델 추가 (재개/취소를 위해 필요)
-
-Table: `prefetch_jobs`
-- `job_id` (PK, uuid 문자열 추천)
-- `created_at` (datetime)
-- `updated_at` (datetime)
-- `status` (String: "RUNNING"|"CANCELLED"|"DONE"|"FAILED")
-- `job_name` (String, nullable)  # 사용자 입력(예: "KR 대형주 2015-2025")
-- `tickers_json` (Text)          # 작업 대상 ticker 목록
-- `start_year` (int)
-- `end_year` (int)
-- `reprt_code` (String(5))
-- `force_refresh` (bool)
-- `cursor_index` (int)           # 현재 ticker 인덱스(0..n-1)
-- `cursor_year` (int)            # 현재 처리 중 연도
-- `processed_count` (int)
-- `success_count` (int)
-- `skip_count` (int)             # 013
-- `fail_count` (int)
-- `last_error` (Text, nullable)
+### Task P0-1: 레포 클론 및 샘플 동작 확인
+1) 로컬에서:
+   - `git clone https://github.com/koreainvestment/open-trading-api.git`
+2) 아래 폴더를 우선 확인한다:
+   - `open-trading-api/examples_llm/domestic_stock/inquire_price/chk_inquire_price.py` (국내 현재가 예제) :contentReference[oaicite:2]{index=2}
+   - 해외 현재가/기간별 시세에 해당하는 examples_llm 하위 폴더(해외 stock 관련) — 동일한 chk_*.py 구조를 따른다. :contentReference[oaicite:3]{index=3}
+3) 샘플 코드에서 다음을 확인하여 우리 프로젝트에 그대로 반영한다:
+   - 실전/모의 도메인
+   - access_token 발급 URL 및 payload
+   - API 호출 시 필요한 헤더(appkey/appsecret/Authorization/tr_id 등)
+   - 해외의 경우 시장 코드(EXCD 등)와 티커 파라미터명
 
 Acceptance:
-- job 생성/업데이트/조회 가능. ✅
-- job을 저장하고 재개할 수 있는 최소 정보 포함.
+- 샘플 코드(국내 현재가 chk_*.py)는 단독 실행 시 응답이 정상.
+- 해외도 샘플 중 1개는 단독 실행 확인.
 
 ---
 
-## P1. Service Layer — Write-through + Prefetch Runner
+## P1. 우리 프로젝트용 KIS 모듈 설계
 
-### Task P1-1: `get_dps_series()` (write-through) (**완료**)
-(기존 Task 유지)
-- DB에서 조회 → 누락 연도만 DART 호출 → upsert.
-
-Acceptance:
-- 동일 ticker 재조회 시 DART 재호출 최소화. ✅
-
-### Task P1-2: Prefetch 실행기(중단/재개 지원) (**완료**)
-`core/prefetch_runner.py` 생성
-
-필수 함수:
-1) `create_job(tickers, start_year, end_year, reprt_code, force_refresh, job_name) -> job_id`
-2) `load_job(job_id) -> job`
-3) `request_cancel(job_id)`:
-   - job status를 "CANCELLED_REQUESTED" 또는 session flag 기반으로 처리(선택)
-4) `run_job_step(job_id, step_limit=1) -> job`
-   - job의 cursor 위치부터 step_limit 만큼만 처리하고 저장
-   - UI에서 반복 호출(루프)하여 진행률 업데이트 가능하도록 “한 스텝 실행” 방식으로 설계
-5) `resume_job(job_id)`:
-   - status가 CANCELLED/RUNNING이 아니면 RUNNING으로 바꾸고 실행 재개
-
-실행 규칙:
-- 처리 단위: (ticker, year)
-- 각 step에서:
-  - 취소 요청 체크 → 취소면 status="CANCELLED" 저장 후 return
-  - 캐시 존재 + force_refresh=False면 스킵 처리 가능(옵션)
-  - DART 호출
-    - 013: skip_count++
-    - 성공: success_count++
-    - 실패: fail_count++ + last_error 저장(단, 전체 중단 vs continue는 옵션)
-  - cursor_year 증가 → end_year 넘으면 다음 ticker로 cursor_index 증가, cursor_year = start_year
-- DONE 조건: cursor_index == len(tickers)
+### Task P1-1: secrets 설정 키 정의
+`.streamlit/secrets.toml`에 아래 키 사용:
+- KIS_APP_KEY
+- KIS_APP_SECRET
+- KIS_ENV ("prod" or "paper")
 
 Acceptance:
-- 중간에 job을 멈추고(cursor 저장), 다시 실행하면 이어서 진행됨. ✅
-- step_limit 기반으로 UI 진행률 갱신 가능.
+- 앱에서 st.secrets로 로드 가능.
+
+### Task P1-2: KIS 인증 모듈
+파일: `core/kis/auth.py`
+
+구현:
+- `get_access_token()`:
+  - 샘플 레포의 인증 로직을 참고하여 구현
+  - 토큰을 로컬 파일(예: `var/kis_token.json`)에 저장해 재사용
+  - 만료 시 재발급
+
+Acceptance:
+- Streamlit rerun에도 토큰 재발급 없이 재사용(만료 전).
+
+### Task P1-3: KIS REST 클라이언트
+파일: `core/kis/client.py`
+
+구현:
+- `request(method, path, *, params=None, json=None, headers=None)`:
+  - base_url은 env(prod/paper)에 따라 샘플 기준 도메인 사용
+  - 필수 헤더(appkey/appsecret/Authorization) 공통 처리
+  - tr_id는 호출 함수별로 주입(샘플 그대로)
+
+Acceptance:
+- 국내 현재가 1회 호출 성공.
 
 ---
 
-## P2. UI — 관리자 수동 Prefetch(진행률/취소/재개)
+## P2. 국내/해외 “현재가” 함수 구현(샘플 우선)
 
-### Task P2-1: 관리자 페이지 `관리자_DART_배당_미리채우기` 구현 (**완료**)
-파일 예: `pages/94_관리자_DART_배당_미리채우기.py`
-(관리자 비밀번호 게이트 적용)
-
-UI 구성:
-1) 입력 섹션
-- tickers 입력(멀티라인/콤마/공백 지원)
-- 또는 자동 선택:
-  - ticker_master에서
-  - dividend_events에서(보유/등장 티커)
-- year range (start_year/end_year)
-- reprt_code (default 11011)
-- force_refresh 체크박스
-- job_name 입력(optional)
-
-2) “작업 생성” 버튼
-- create_job 호출 → job_id 생성
-- session_state에 `active_job_id` 저장
-
-3) 진행 섹션(작업이 있을 때)
-- 진행률(progress bar):
-  - total_steps = len(tickers) * (end_year - start_year + 1)
-  - done_steps = processed_count
-  - progress = done_steps / total_steps
-- 현재 처리 중 표시:
-  - 현재 ticker, year
-  - success/skip/fail 카운트
-  - 최근 에러(last_error) 있으면 표시
-- 버튼:
-  - “계속 실행(▶)” (RUNNING 시작/재개)
-  - “일시 중지(⏸)” (CANCELLED 또는 PAUSED로 상태 변경)
-  - “취소(⛔)” (CANCELLED 상태)
-  - “처음부터 다시(🔄)” (새 job 생성 유도; 기존 job은 DONE/CANCELLED로 유지)
-
-진행 갱신 방식(중요):
-- Streamlit은 단일 실행 흐름이므로, “계속 실행”을 누르면:
-  - while-loop로 무한 돌리지 말고,
-  - `run_job_step(job_id, step_limit=k)` 호출 후 `st.rerun()`을 반복하는 방식 사용
-  - 예: 한 rerun 당 k=5~20 step 처리(너무 크면 UI 멈춤)
+### Task P2-1: 국내 현재가
+파일: `core/kis/domestic_quotes.py`
+- `fetch_domestic_now(symbol_6: str) -> NormalizedQuote`
+  - examples_llm의 국내 현재가 샘플(chk_inquire_price.py)을 그대로 참고하여
+    - endpoint
+    - params
+    - tr_id
+    를 정확히 맞춘다. :contentReference[oaicite:4]{index=4}
+  - normalize 필드(화면 표시용):
+    - last, change, change_rate, volume, open/high/low(가능 시)
 
 Acceptance:
-- progress bar가 실시간으로 증가. ✅
-- 취소/일시정지 버튼이 즉시 반영.
-- 재개 시 이전 cursor 위치부터 다시 시작.
+- 005930 같은 종목으로 정상 값 반환.
 
-### Task P2-2: “나중에 이어서” UX (**완료**)
-- 페이지 상단에 최근 job 목록 표시(최근 10개)
-  - job_name, created_at, status, progress%
-  - “재개” 버튼(해당 job_id를 active_job_id로 선택)
-- DONE/CANCELLED도 목록에 남겨서 히스토리 확인 가능
+### Task P2-2: 해외 현재가
+파일: `core/kis/overseas_quotes.py`
+- `fetch_overseas_now(market: str, ticker: str) -> NormalizedQuote`
+  - examples_llm의 해외 현재가/체결가 샘플을 찾아 동일하게 구현
+  - market 코드/파라미터명/헤더(tr_id)는 샘플 그대로
 
 Acceptance:
-- 새로고침/앱 재시작 후에도(세션이 날아가도) DB에 저장된 job을 선택하여 재개 가능. ✅
+- 예: NASD + AAPL(or MMM) 조회 성공.
 
 ---
 
-## P3. 안정성/성능/품질
+## P3. 5년 가격 차트(기간별 시세)
 
-### Task P3-1: 캐시 존재 시 스킵 정책 (**완료**)
-Prefetch에서 성능 최적화:
-- force_refresh=False이면 DB에 이미 값이 있는 (ticker,year)은 호출하지 않고 스킵
-- 단, 최근 1~2개 연도는 옵션으로 “항상 재검증” 토글 가능(선택)
-
-Acceptance:
-- 이미 채워진 구간은 매우 빠르게 완료. ✅
-
-### Task P3-2: 네트워크 보호(재시도/백오프) (**완료**)
-- 실패 시 1~2회 재시도(간단)
-- 연속 실패가 많으면 sleep(예: 0.2~0.5s) 옵션
-- DART rate limit을 고려해 과도한 병렬 처리 금지
+### Task P3-1: 국내 기간별 시세(5년)
+파일: `core/kis/domestic_quotes.py`
+- `fetch_domestic_history(symbol_6, start, end, period="D") -> DataFrame`
+  - 국내 기간별 시세 API는 문서가 존재하며, 샘플 레포 구조에 맞춰 구현 :contentReference[oaicite:5]{index=5}
+  - 5년 일봉이 한번에 제한될 수 있으니:
+    - 기본 표시: 주봉("W") 또는 월봉("M") 우선
+    - 일봉("D") 선택 시 구간 분할 호출 후 concat
 
 Acceptance:
-- 일시적 네트워크 실패에 견고. ✅
+- 차트 데이터 생성 후 Streamlit line chart로 표시 가능.
 
-### Task P3-3: 파서 버전/원본 저장 (**완료**)
-- `parser_version` 고정값 저장 (예: "v1")
-- `raw_payload`에 DART 응답 일부 저장(크기 제한 가능)
+### Task P3-2: 해외 기간별 시세(5년)
+파일: `core/kis/overseas_quotes.py`
+- `fetch_overseas_history(market, ticker, start, end, period="D") -> DataFrame`
+  - examples_llm의 해외 기간별 시세 샘플을 기반으로 구현
+  - 동일하게 구간 분할/집계 옵션 제공
 
 Acceptance:
-- 나중에 파서 개선 시 force_refresh로 재생성 가능. ✅
+- 해외 티커 1개 이상 5년 차트 표시 성공.
 
 ---
 
-## 구현 메모(중요)
-- Streamlit에서 “취소”는 즉시 프로세스를 kill할 수 없으니,
-  **각 step마다 cancel flag를 확인**하는 구조로 설계해야 한다.
-- 권장 상태 값:
-  - RUNNING / PAUSED / CANCELLED / DONE / FAILED
-- st.session_state:
-  - `active_job_id`
-  - `run_mode` (True/False)
-  - `cancel_requested` (optional, but DB status가 더 안정적)
-- UI 멈춤 방지:
-  - 한 rerun 당 처리량(step_limit)을 적절히 제한 (예: 10)
-  - 처리 후 `st.rerun()`으로 갱신
+## P4. Streamlit “종목 검색” 화면 연동
+
+### Task P4-1: UI 추가(현재가 카드 + 차트)
+- 입력값이 6자리 숫자면 국내로 간주
+- 아니면 해외:
+  - market 드롭다운 제공(NASD/NYSE/AMEX 등, 샘플에서 쓰는 코드로)
+- 현재가:
+  - st.cache_data(ttl=30~60) 적용
+- 차트(5년):
+  - st.cache_data(ttl=6~24h) 적용
+  - 일/주/월 토글 제공(기본 주봉)
+
+Acceptance:
+- 국내/해외 모두: 현재가 + 5년 차트가 동일 화면에 표시.
+
+---
+
+## 구현 원칙(중요)
+- TR_ID/파라미터/도메인은 반드시 open-trading-api 샘플(examples_llm)을 “단일 진실 소스”로 삼는다. :contentReference[oaicite:6]{index=6}
+- 샘플이 동작하는 입력을 최소 1개(국내/해외 각각) 고정 테스트 케이스로 만들어 regression test로 유지한다.
