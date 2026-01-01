@@ -148,6 +148,26 @@ class PortfolioSnapshot(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
 
+class CashSnapshot(Base):
+    __tablename__ = "cash_snapshots"
+    __table_args__ = (
+        UniqueConstraint("snapshot_date", "account_type", name="uq_cash_snapshot_date_account"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    account_type: Mapped[AccountType] = mapped_column(Enum(AccountType), nullable=False, default=AccountType.ALL)
+    cash_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class TradeSide(str, enum.Enum):
+    BUY = "BUY"
+    SELL = "SELL"
+
+
 class HoldingPosition(Base):
     __tablename__ = "holding_positions"
     __table_args__ = (
@@ -162,6 +182,30 @@ class HoldingPosition(Base):
     total_cost_krw: Mapped[float] = mapped_column(Float, nullable=False)
     note: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class HoldingLot(Base):
+    __tablename__ = "holding_lots"
+    __table_args__ = (
+        UniqueConstraint("external_id", name="uq_holding_lot_external_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    external_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    account_type: Mapped[AccountType] = mapped_column(Enum(AccountType), nullable=False, index=True)
+    side: Mapped[TradeSide] = mapped_column(Enum(TradeSide), nullable=False, index=True)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="KRW")
+    fx_rate: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+    price_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    amount_krw: Mapped[float] = mapped_column(Float, nullable=False)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
 

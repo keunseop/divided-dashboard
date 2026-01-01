@@ -22,6 +22,7 @@ class PositionValuation:
     quantity: float
     avg_buy_price_krw: float
     total_cost_krw: float
+    realized_pnl_krw: float | None
     price: float | None
     price_currency: str | None
     price_as_of: datetime | None
@@ -125,6 +126,7 @@ def calculate_position_valuations(
                 quantity=position.quantity,
                 avg_buy_price_krw=position.avg_buy_price_krw,
                 total_cost_krw=position.total_cost_krw,
+                realized_pnl_krw=position.realized_pnl_krw,
                 price=price_native,
                 price_currency=price_currency,
                 price_as_of=price_as_of,

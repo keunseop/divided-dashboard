@@ -1,140 +1,180 @@
-# TASK.md — KIS OpenAPI 국내/해외 시세: open-trading-api/examples_llm 참고하여 구현
+# TASKS.md — 매도 처리 + 연도별 배당 Top15 + 현금 입력/추이(대시보드)
 
-## 목표
-- Streamlit 종목 검색 화면에서 국내/해외 “현재가” 및 “5년 가격 차트(일/주/월)” 표시
-- 데이터 소스: 한국투자증권(KIS) OpenAPI
-- 구현 시 반드시 한국투자증권 공식 GitHub 샘플을 기준으로 TR_ID/파라미터/도메인(실전/모의)을 맞춘다.
+## 범위(요약)
+1) 포트폴리오 거래에서 **매도(SELL)** 를 지원하여 보유수량/평단/평가/손익 계산이 정확히 되게 한다.
+2) 배당 Top 15 위젯에 **연도 선택/연도별 Top 15** 기능을 추가한다.
+3) 대시보드에 **현금(Cash)** 을 입력/관리하고, 총자산(매입원금+현금, 평가액+현금)의 **추이**를 표시한다.
 
-공식 참고자료:
-- koreainvestment/open-trading-api 저장소의 examples_llm 폴더(기능별 chk_*.py 샘플) :contentReference[oaicite:1]{index=1}
-
----
-
-## P0. 샘플 레포 받아서 “정답 스펙” 확인
-
-### Task P0-1: 레포 클론 및 샘플 동작 확인
-1) 로컬에서:
-   - `git clone https://github.com/koreainvestment/open-trading-api.git`
-2) 아래 폴더를 우선 확인한다:
-   - `open-trading-api/examples_llm/domestic_stock/inquire_price/chk_inquire_price.py` (국내 현재가 예제) :contentReference[oaicite:2]{index=2}
-   - 해외 현재가/기간별 시세에 해당하는 examples_llm 하위 폴더(해외 stock 관련) — 동일한 chk_*.py 구조를 따른다. :contentReference[oaicite:3]{index=3}
-3) 샘플 코드에서 다음을 확인하여 우리 프로젝트에 그대로 반영한다:
-   - 실전/모의 도메인
-   - access_token 발급 URL 및 payload
-   - API 호출 시 필요한 헤더(appkey/appsecret/Authorization/tr_id 등)
-   - 해외의 경우 시장 코드(EXCD 등)와 티커 파라미터명
-
-Acceptance:
-- 샘플 코드(국내 현재가 chk_*.py)는 단독 실행 시 응답이 정상.
-- 해외도 샘플 중 1개는 단독 실행 확인.
+전제:
+- 로그인/유저 개념 없음.
+- 관리자 비번 게이트만 유지.
+- 데이터 입력은 CSV import + 필요 시 UI 수동 입력(현금) 허용.
 
 ---
 
-## P1. 우리 프로젝트용 KIS 모듈 설계
+# P1. 매도(SELL) 처리 지원
 
-### Task P1-1: secrets 설정 키 정의
-`.streamlit/secrets.toml`에 아래 키 사용:
-- KIS_APP_KEY
-- KIS_APP_SECRET
-- KIS_ENV ("prod" or "paper")
-
-Acceptance:
-- 앱에서 st.secrets로 로드 가능.
-
-### Task P1-2: KIS 인증 모듈
-파일: `core/kis/auth.py`
-
-구현:
-- `get_access_token()`:
-  - 샘플 레포의 인증 로직을 참고하여 구현
-  - 토큰을 로컬 파일(예: `var/kis_token.json`)에 저장해 재사용
-  - 만료 시 재발급
+## Task P1-1: CSV 스키마/Importer에서 매도 지원
+대상: `holdings_lots`(또는 현재 거래 테이블)
+- `side` 컬럼에 BUY/SELL 지원
+- CSV에서 "매수/매도", "BUY/SELL", "매도" 등을 normalize:
+  - 매수 -> BUY
+  - 매도 -> SELL
+- 매도는 수량/단가/통화/환율(필요시) 동일하게 입력되며, KRW 환산금액도 계산/저장
 
 Acceptance:
-- Streamlit rerun에도 토큰 재발급 없이 재사용(만료 전).
+- 매도 행이 import되어 DB에 저장됨.
+- 기존 BUY-only 파일도 그대로 import 가능.
 
-### Task P1-3: KIS REST 클라이언트
-파일: `core/kis/client.py`
+## Task P1-2: 포지션 계산 로직에 매도 반영(가중평균법)
+현재 포지션 계산을 다음 규칙으로 수정:
+- `qty`:
+  - qty = ΣBUY - ΣSELL
+- `cost_basis_krw`(잔존 원가):
+  - BUY: cost += buy_krw
+  - SELL: 평균원가 기준으로 비례 차감
+    - avg_cost = cost / qty_before_sell
+    - cost -= avg_cost * sell_qty
+- `avg_buy_price_krw`:
+  - qty>0 이면 cost_basis_krw / qty
+  - qty=0 이면 0 또는 None
+- (선택) `realized_pnl_krw`(실현손익)도 계산:
+  - proceeds_krw = sell_qty * sell_price_krw
+  - realized += proceeds_krw - (avg_cost * sell_qty)
 
-구현:
-- `request(method, path, *, params=None, json=None, headers=None)`:
-  - base_url은 env(prod/paper)에 따라 샘플 기준 도메인 사용
-  - 필수 헤더(appkey/appsecret/Authorization) 공통 처리
-  - tr_id는 호출 함수별로 주입(샘플 그대로)
+예외/검증:
+- 매도 수량이 보유 수량을 초과하면:
+  - (선택1) 에러로 막기
+  - (선택2) 경고 + 0 이하 허용(비추천)
+- 동일 티커/계좌구분 단위로 계산
 
 Acceptance:
-- 국내 현재가 1회 호출 성공.
+- 매도 후 잔존 수량/평단/원가가 기대대로 감소함.
+- 잔존 수량 0이면 평단/원가가 정상 초기화됨.
+- (선택) 실현손익이 계산되어 표에 표시 가능.
+
+## Task P1-3: UI 표(보유 종목/대시보드)에서 매도 반영 확인
+- 보유 종목 테이블:
+  - qty 감소 반영
+  - cost_basis_krw 감소 반영
+  - (선택) realized_pnl_krw 컬럼 표시 토글
+- 종목 상세:
+  - 거래 내역(BUY/SELL) 필터/정렬
+
+Acceptance:
+- 매도 입력 후 화면이 일관되게 갱신.
 
 ---
 
-## P2. 국내/해외 “현재가” 함수 구현(샘플 우선)
+# P2. 연도별 배당 Top 15
 
-### Task P2-1: 국내 현재가
-파일: `core/kis/domestic_quotes.py`
-- `fetch_domestic_now(symbol_6: str) -> NormalizedQuote`
-  - examples_llm의 국내 현재가 샘플(chk_inquire_price.py)을 그대로 참고하여
-    - endpoint
-    - params
-    - tr_id
-    를 정확히 맞춘다. :contentReference[oaicite:4]{index=4}
-  - normalize 필드(화면 표시용):
-    - last, change, change_rate, volume, open/high/low(가능 시)
+## Task P2-1: 대시보드 Top 15 영역에 “연도 선택” UI 추가
+- 기본값: "전체(모든 연도)" 또는 "최근 연도"
+- 연도 dropdown:
+  - dividend_events에서 존재하는 연도 목록을 자동 생성
+- 선택 연도에 따라 Top 15 계산을 다시 수행
 
 Acceptance:
-- 005930 같은 종목으로 정상 값 반환.
+- 연도 선택 시 Top 15 목록이 바뀜.
+- "전체" 선택 시 기존 동작 유지.
 
-### Task P2-2: 해외 현재가
-파일: `core/kis/overseas_quotes.py`
-- `fetch_overseas_now(market: str, ticker: str) -> NormalizedQuote`
-  - examples_llm의 해외 현재가/체결가 샘플을 찾아 동일하게 구현
-  - market 코드/파라미터명/헤더(tr_id)는 샘플 그대로
+## Task P2-2: Top 15 계산 로직 확장(연도별/전체)
+- 입력:
+  - year: int | None
+- 로직:
+  - year가 있으면 해당 연도만 필터 후 종목별 합계(세전배당/세후배당 중 표시 기준은 기존과 동일)
+  - year가 None이면 전체 기간 합계(기존과 동일)
+- 표시:
+  - 종목명(또는 ticker/name_ko)
+  - 합계 배당금(KRW)
+  - (옵션) 전년 대비 증감(YoY) 같이 보여주면 유용 (가능하면)
 
 Acceptance:
-- 예: NASD + AAPL(or MMM) 조회 성공.
+- Top 15가 정확히 year 기준으로 집계됨.
+
+## Task P2-3: “연도별 Top15 요약 테이블” 옵션(선택)
+- 버튼/토글: “연도별로 보기”
+- 출력:
+  - 연도 x 순위(1~15) 형태 또는
+  - 연도별 Top15 리스트를 아래에 확장 표시
+
+Acceptance:
+- 사용자가 연도별로 Top15 변화를 한눈에 볼 수 있음.
 
 ---
 
-## P3. 5년 가격 차트(기간별 시세)
+# P3. 대시보드에 ‘현금’ 추가 + 추이(총자산)
 
-### Task P3-1: 국내 기간별 시세(5년)
-파일: `core/kis/domestic_quotes.py`
-- `fetch_domestic_history(symbol_6, start, end, period="D") -> DataFrame`
-  - 국내 기간별 시세 API는 문서가 존재하며, 샘플 레포 구조에 맞춰 구현 :contentReference[oaicite:5]{index=5}
-  - 5년 일봉이 한번에 제한될 수 있으니:
-    - 기본 표시: 주봉("W") 또는 월봉("M") 우선
-    - 일봉("D") 선택 시 구간 분할 호출 후 concat
+## Task P3-1: 현금 입력 방식 결정 및 테이블 추가
+권장: 스냅샷 기반(추이를 위해)
+- 테이블: `cash_snapshots`
+  - id (PK)
+  - snapshot_date (date)  # 월말 또는 사용자가 입력한 날짜
+  - account_type (ALL/TAXABLE/ISA) (현재는 ALL만 써도 됨)
+  - cash_krw (float)
+  - note (text)
+  - created_at/updated_at
+
+입력 UI:
+- 대시보드에 “현금 입력/업데이트” 섹션:
+  - 날짜 선택(기본: 오늘)
+  - 금액 입력
+  - 저장 버튼(해당 날짜가 있으면 update, 없으면 insert)
+- (선택) CSV import도 지원(나중에)
 
 Acceptance:
-- 차트 데이터 생성 후 Streamlit line chart로 표시 가능.
+- 현금 값을 날짜별로 저장 가능.
+- 동일 날짜 입력 시 update 동작.
 
-### Task P3-2: 해외 기간별 시세(5년)
-파일: `core/kis/overseas_quotes.py`
-- `fetch_overseas_history(market, ticker, start, end, period="D") -> DataFrame`
-  - examples_llm의 해외 기간별 시세 샘플을 기반으로 구현
-  - 동일하게 구간 분할/집계 옵션 제공
+## Task P3-2: 총 매입금/평가액에 현금 포함한 지표 추가
+현재 대시보드가 보여주는:
+- 총 매입금(투입 원금/원가)
+- 현재 평가액(주식 평가액)
+
+여기에 아래를 추가:
+- 현금(cash_krw)
+- 총자산(원가 기준) = 매입원금 + 현금
+- 총자산(평가 기준) = 평가액 + 현금
+
+표시 형식:
+- KRW 천단위 콤마 + "원"
+- 현금 데이터가 없으면:
+  - "현금 입력 필요" 안내 + 입력 섹션 강조
 
 Acceptance:
-- 해외 티커 1개 이상 5년 차트 표시 성공.
+- 현금 입력 후 4개 지표가 함께 갱신되어 표시됨.
+
+## Task P3-3: 추이 차트(현금 포함)
+차트 2개 권장:
+1) 시계열(월 단위): 
+   - 매입원금(또는 cost_basis)
+   - 평가액
+   - 현금
+   - 총자산(평가 기준)
+2) (선택) 누적 납입 vs 총자산 비교(이미 납입 스냅샷이 있다면)
+
+데이터 정렬:
+- snapshot_date 기준
+- 현금이 없는 날짜는 forward-fill(선택) 또는 결측 표시(선택)
+
+Acceptance:
+- 현금 스냅샷이 누적되면 차트가 자연스럽게 업데이트.
+- 최근 12~24개월 구간 필터(선택) 제공.
 
 ---
 
-## P4. Streamlit “종목 검색” 화면 연동
-
-### Task P4-1: UI 추가(현재가 카드 + 차트)
-- 입력값이 6자리 숫자면 국내로 간주
-- 아니면 해외:
-  - market 드롭다운 제공(NASD/NYSE/AMEX 등, 샘플에서 쓰는 코드로)
-- 현재가:
-  - st.cache_data(ttl=30~60) 적용
-- 차트(5년):
-  - st.cache_data(ttl=6~24h) 적용
-  - 일/주/월 토글 제공(기본 주봉)
-
-Acceptance:
-- 국내/해외 모두: 현재가 + 5년 차트가 동일 화면에 표시.
+# 테스트 체크리스트(필수)
+- 매도 CSV 1건 추가 후:
+  - 보유수량 감소, 잔존 원가 감소, 평가액/손익 변화 확인
+- 배당 Top15:
+  - 연도 바꿔도 정상 집계
+- 현금:
+  - 날짜별 2개 입력 → 차트에 반영
+  - 현금 포함 총자산 지표가 정확히 계산
 
 ---
 
-## 구현 원칙(중요)
-- TR_ID/파라미터/도메인은 반드시 open-trading-api 샘플(examples_llm)을 “단일 진실 소스”로 삼는다. :contentReference[oaicite:6]{index=6}
-- 샘플이 동작하는 입력을 최소 1개(국내/해외 각각) 고정 테스트 케이스로 만들어 regression test로 유지한다.
+# 구현 메모
+- 금액 계산은 모두 KRW 기준으로 통일(환율 적용은 기존 로직 재사용).
+- SQLAlchemy 세션 종료 후 객체 접근 문제(DetachedInstanceError) 방지를 위해:
+  - 페이지단에서 필요한 값은 session 내부에서 dict/df로 변환 후 반환.

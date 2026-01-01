@@ -1,4 +1,5 @@
 ﻿import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 from datetime import date
 from dateutil.relativedelta import relativedelta
@@ -79,9 +80,9 @@ def _persist_dividend_cache(ticker: str, entries):
 
 
 @st.cache_data(ttl=60 * 60 * 6)
-def _fetch_price_history_kr(ticker: str, start: date, end: date) -> pd.DataFrame:
+def _fetch_price_history_kr(ticker: str, start: date, end: date, *, period: str = "D") -> pd.DataFrame:
     try:
-        df = fetch_domestic_price_history(ticker, start=start, end=end)
+        df = fetch_domestic_price_history(ticker, start=start, end=end, period=period)
     except Exception:
         return pd.DataFrame()
     if df is None or df.empty:
@@ -92,32 +93,69 @@ def _fetch_price_history_kr(ticker: str, start: date, end: date) -> pd.DataFrame
     return df
 
 
+def _ensure_ohlc(df: pd.DataFrame) -> pd.DataFrame:
+    output = df.copy()
+    if "open" not in output.columns:
+        output["open"] = output["close"]
+    if "high" not in output.columns:
+        output["high"] = output["close"]
+    if "low" not in output.columns:
+        output["low"] = output["close"]
+    output["close"] = output["close"].astype(float).fillna(method="ffill").fillna(method="bfill")
+    output["open"] = output["open"].fillna(method="ffill").fillna(output["close"])
+    output["high"] = output["high"].fillna(output["close"])
+    output["low"] = output["low"].fillna(output["close"])
+    output["date"] = pd.to_datetime(output["date"])
+    output = output.sort_values("date")
+    return output
+
+
+def _render_candlestick_chart(df: pd.DataFrame, title: str) -> None:
+    df = _ensure_ohlc(df)
+    fig = go.Figure(
+        data=[
+            go.Candlestick(
+                x=df["date"],
+                open=df["open"],
+                high=df["high"],
+                low=df["low"],
+                close=df["close"],
+                increasing_line_color="#d90429",
+                increasing_fillcolor="#d90429",
+                decreasing_line_color="#0057d9",
+                decreasing_fillcolor="#0057d9",
+                name="Price",
+            )
+        ]
+    )
+    fig.update_layout(
+        title=title,
+        xaxis_title="날짜",
+        yaxis_title="가격",
+        template="plotly_white",
+        xaxis_rangeslider_visible=False,
+        height=420,
+        margin=dict(l=10, r=10, t=50, b=20),
+    )
+    fig.update_xaxes(tickformat="%Y/%m/%d")
+    st.plotly_chart(fig, use_container_width=True)
+
+
 def _render_price_chart_kr(ticker: str) -> None:
     end = date.today()
     start = end - relativedelta(years=5)
-    df = _fetch_price_history_kr(ticker, start, end)
+    df = _fetch_price_history_kr(ticker, start, end, period="W")
     if df.empty:
         st.warning("시계열 가격 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")
         return
 
-    freq = st.radio("가격 차트 주기", ["일간", "주간"], horizontal=True, index=1)
-    display_df = df.copy()
-    if freq == "주간":
-        display_df = (
-            display_df.set_index("date")
-            .resample("W-FRI")
-            .agg({"close": "last"})
-            .dropna()
-            .reset_index()
-        )
-
     st.subheader("최근 5년 가격 추이")
-    st.line_chart(display_df.set_index("date")["close"])
+    _render_candlestick_chart(df, f"{ticker} 가격(주간)")
 
 @st.cache_data(ttl=60 * 60 * 6)
-def _fetch_price_history_overseas(market: str, ticker: str, start: date, end: date) -> pd.DataFrame:
+def _fetch_price_history_overseas(market: str, ticker: str, start: date, end: date, *, period: str = "D") -> pd.DataFrame:
     try:
-        df = fetch_overseas_price_history(market, ticker, start=start, end=end)
+        df = fetch_overseas_price_history(market, ticker, start=start, end=end, period=period)
     except Exception:
         return pd.DataFrame()
     if df is None or df.empty:
@@ -131,24 +169,13 @@ def _fetch_price_history_overseas(market: str, ticker: str, start: date, end: da
 def _render_price_chart_overseas(market: str, ticker: str) -> None:
     end = date.today()
     start = end - relativedelta(years=5)
-    df = _fetch_price_history_overseas(market, ticker, start, end)
+    df = _fetch_price_history_overseas(market, ticker, start, end, period="W")
     if df.empty:
         st.warning("시계열 가격 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.")
         return
 
-    freq = st.radio("가격 차트 주기", ["일간", "주간"], horizontal=True, index=1)
-    display_df = df.copy()
-    if freq == "주간":
-        display_df = (
-            display_df.set_index("date")
-            .resample("W-FRI")
-            .agg({"close": "last"})
-            .dropna()
-            .reset_index()
-        )
-
     st.subheader("최근 5년 가격 추이")
-    st.line_chart(display_df.set_index("date")["close"])
+    _render_candlestick_chart(df, f"{ticker} 가격(주간)")
 
 owned_map = _load_owned_tickers()
 owned_options = [""] + list(owned_map.keys())

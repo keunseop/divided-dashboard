@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy import select
 
+from core.cash_service import (
+    list_cash_snapshots,
+    upsert_cash_snapshot,
+)
 from core.db import db_session
 from core.models import DividendEvent, AccountType, TickerMaster
 from core.valuation_service import (
@@ -86,17 +90,90 @@ monthly = df.groupby("ym", as_index=False)["value"].sum().sort_values("ym")
 st.subheader("월별 배당 추이")
 st.line_chart(monthly, x="ym", y="value")
 
+st.subheader("종목 TOP 15")
+top_col1, top_col2 = st.columns([2, 1])
+years_available = sorted(df["year"].dropna().unique().tolist())
+year_options = ["전체"] + [str(int(y)) for y in years_available]
+with top_col1:
+    selected_year_label = st.selectbox(
+        "연도 선택",
+        options=year_options,
+        help="특정 연도를 선택하면 해당 연도의 Top 15만 집계합니다.",
+    )
+selected_year = None if selected_year_label == "전체" else int(selected_year_label)
+with top_col2:
+    show_yearly_summary = st.checkbox("연도별 요약 보기", value=False)
+
+top_source = df if selected_year is None else df[df["year"] == selected_year]
+
 top = (
-    df.groupby("ticker", as_index=False)["value"]
+    top_source.groupby("ticker", as_index=False)["value"]
     .sum()
     .sort_values("value", ascending=False)
     .head(15)
 )
 top["name_ko"] = top["ticker"].map(lambda t: ticker_name_map.get(t, "미등록"))
-st.subheader("종목 TOP 15")
-top_display = top[["ticker", "name_ko", "value"]].copy()
+
+if selected_year is not None:
+    prev_year = selected_year - 1
+    prev_map = (
+        df[df["year"] == prev_year]
+        .groupby("ticker", as_index=False)["value"]
+        .sum()
+        .set_index("ticker")["value"]
+        .to_dict()
+    )
+
+    def _calc_yoy(row):
+        prev_val = prev_map.get(row["ticker"])
+        if not prev_val:
+            return None
+        if prev_val == 0:
+            return None
+        return row["value"] / prev_val - 1
+
+    top["yoy"] = top.apply(_calc_yoy, axis=1)
+else:
+    top["yoy"] = None
+
+top_display = top[["ticker", "name_ko", "value", "yoy"]].copy()
 top_display["value"] = top_display["value"].map(lambda v: f"{v:,.0f}원")
+if selected_year is not None:
+    top_display["yoy"] = top_display["yoy"].map(lambda v: f"{v*100:,.1f}%" if v is not None else "N/A")
+else:
+    top_display = top_display.drop(columns=["yoy"])
 st.dataframe(top_display, use_container_width=True)
+
+if show_yearly_summary:
+    yearly_rows = []
+    for year in sorted(years_available):
+        yearly_df = (
+            df[df["year"] == year]
+            .groupby("ticker", as_index=False)["value"]
+            .sum()
+            .sort_values("value", ascending=False)
+            .head(15)
+        )
+        for rank, row in enumerate(yearly_df.itertuples(index=False), start=1):
+            yearly_rows.append(
+                {
+                    "Year": int(year),
+                    "Rank": rank,
+                    "Ticker": row.ticker,
+                    "Name": ticker_name_map.get(row.ticker, "미등록"),
+                    "Value (KRW)": row.value,
+                }
+            )
+    if yearly_rows:
+        summary_df = pd.DataFrame(yearly_rows)
+        summary_df["Value (KRW)"] = summary_df["Value (KRW)"].map(lambda v: f"{v:,.0f}원")
+        st.dataframe(
+            summary_df,
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("연도별 요약을 표시할 데이터가 없습니다.")
 
 st.divider()
 st.subheader("보유 포지션 현재가 및 평가손익")
@@ -107,6 +184,8 @@ force_price_refresh = st.checkbox(
     help="체크하면 price_cache를 무시하고 외부 데이터 소스를 다시 호출합니다.",
 )
 
+cash_snapshots = []
+latest_cash_snapshot = None
 with st.spinner("보유 종목의 현재가를 계산하는 중입니다..."):
     with db_session() as session:
         valuations, valuation_errors = calculate_position_valuations(
@@ -115,6 +194,8 @@ with st.spinner("보유 종목의 현재가를 계산하는 중입니다..."):
         )
         history_account = AccountType.ALL if account_filter == "ALL" else AccountType(account_filter)
         history_entries = get_valuation_history(session, history_account, limit=180)
+        cash_snapshots = list_cash_snapshots(session, account_type=history_account, limit=365)
+        latest_cash_snapshot = cash_snapshots[-1] if cash_snapshots else None
 
 summaries = summarize_valuations(valuations)
 selected_account = None if account_filter == "ALL" else AccountType(account_filter)
@@ -135,6 +216,48 @@ if summary and summary.positions_count > 0:
     )
 else:
     st.info("표시할 포지션이 없거나 가격 정보를 가져올 수 없습니다.")
+
+cash_cols = st.columns([2, 1])
+with cash_cols[0]:
+    if latest_cash_snapshot:
+        cash_value = latest_cash_snapshot.cash_krw
+        metric_row = st.columns(3)
+        metric_row[0].metric("현금 (KRW)", f"{cash_value:,.0f}원")
+        if summary and summary.positions_count > 0:
+            metric_row[1].metric("총자산 (원가+현금)", f"{(summary.total_cost_krw + cash_value):,.0f}원")
+            metric_row[2].metric("총자산 (평가+현금)", f"{(summary.market_value_krw + cash_value):,.0f}원")
+        else:
+            metric_row[1].metric("총자산 (원가+현금)", "데이터 없음")
+            metric_row[2].metric("총자산 (평가+현금)", "데이터 없음")
+            st.info("평가 데이터가 없어 총자산 계산에 현금만 표시됩니다.")
+    else:
+        st.warning("현금 스냅샷이 없습니다. 현금을 입력해 총자산을 함께 추적하세요.")
+with cash_cols[1]:
+    st.write("현금 입력/업데이트")
+    default_cash_value = latest_cash_snapshot.cash_krw if latest_cash_snapshot else 0.0
+    with st.form("cash_snapshot_form"):
+        cash_date = st.date_input("기준일", value=pd.Timestamp.today().date())
+        cash_amount = st.number_input(
+            "현금 (KRW)",
+            min_value=0.0,
+            value=float(default_cash_value),
+            step=100000.0,
+        )
+        cash_note = st.text_input("메모", value="")
+        submitted_cash = st.form_submit_button("저장")
+    if submitted_cash:
+        try:
+            with db_session() as session:
+                upsert_cash_snapshot(
+                    session,
+                    snapshot_date=cash_date,
+                    account_type=history_account,
+                    cash_krw=cash_amount,
+                    note=cash_note or None,
+                )
+            st.success("현금 스냅샷이 저장되었습니다.")
+        except Exception as exc:
+            st.error(f"현금 저장 실패: {exc}")
 
 missing_prices = [
     f"{val.ticker} ({val.account_type.value})"
@@ -163,6 +286,7 @@ if display_valuations:
                 "Quantity": val.quantity,
                 "Avg Buy Price (KRW)": val.avg_buy_price_krw,
                 "Total Cost (KRW)": val.total_cost_krw,
+                "Realized PnL (KRW)": val.realized_pnl_krw,
                 "Price": val.price,
                 "Currency": val.price_currency,
                 "Price (KRW)": val.price_krw,
@@ -189,6 +313,7 @@ if display_valuations:
         "Quantity": "{:,.4f}",
         "Avg Buy Price (KRW)": "{:,.0f}",
         "Total Cost (KRW)": "{:,.0f}",
+        "Realized PnL (KRW)": "{:,.0f}",
         "Price": "{:,.2f}",
         "Price (KRW)": "{:,.0f}",
         "Market Value (KRW)": "{:,.0f}",
@@ -211,25 +336,41 @@ if summary_all and summary_all.positions_count > 0:
             result = upsert_valuation_snapshots(session, summaries)
         st.success(f"평가액 저장 완료 (inserted {result.inserted}, updated {result.updated})")
 
-st.subheader("평가액 추이")
+st.subheader("평가액/현금 추이")
 history_label = "전체" if history_account == AccountType.ALL else history_account.value
-if history_entries:
-    history_df = pd.DataFrame(
-        [
-            {
-                "valuation_date": entry.valuation_date,
-                "market_value_krw": entry.market_value_krw,
-                "total_cost_krw": entry.total_cost_krw,
-                "gain_loss_krw": entry.gain_loss_krw,
-            }
-            for entry in history_entries
-        ]
-    )
-    st.caption(f"{history_label} 계좌 기준 최근 {len(history_entries)}건")
+history_df = pd.DataFrame(
+    [
+        {
+            "valuation_date": entry.valuation_date,
+            "market_value_krw": entry.market_value_krw,
+            "total_cost_krw": entry.total_cost_krw,
+            "gain_loss_krw": entry.gain_loss_krw,
+        }
+        for entry in history_entries
+    ]
+) if history_entries else pd.DataFrame(columns=["valuation_date", "market_value_krw", "total_cost_krw", "gain_loss_krw"])
+cash_history_df = pd.DataFrame(
+    [
+        {
+            "valuation_date": snapshot.snapshot_date,
+            "cash_krw": snapshot.cash_krw,
+        }
+        for snapshot in cash_snapshots
+    ]
+) if cash_snapshots else pd.DataFrame(columns=["valuation_date", "cash_krw"])
+
+if not history_df.empty or not cash_history_df.empty:
+    merged = pd.merge(history_df, cash_history_df, on="valuation_date", how="outer").sort_values("valuation_date")
+    merged["cash_krw"] = merged["cash_krw"].ffill().fillna(0.0)
+    merged["total_cost_krw"] = merged["total_cost_krw"].ffill().fillna(0.0)
+    merged["market_value_krw"] = merged["market_value_krw"].ffill().fillna(0.0)
+    merged["asset_cost_with_cash"] = merged["total_cost_krw"] + merged["cash_krw"]
+    merged["asset_market_with_cash"] = merged["market_value_krw"] + merged["cash_krw"]
+    st.caption(f"{history_label} 계좌 기준 평가/현금 추이 (최근 {len(merged)}포인트)")
     st.line_chart(
-        history_df,
+        merged,
         x="valuation_date",
-        y=["market_value_krw", "total_cost_krw"],
+        y=["total_cost_krw", "market_value_krw", "cash_krw", "asset_market_with_cash"],
     )
 else:
-    st.info(f"{history_label} 계좌에 저장된 평가 기록이 없습니다. '오늘 평가액 기록 저장' 버튼을 사용해 주세요.")
+    st.info(f"{history_label} 계좌에 저장된 평가 또는 현금 기록이 없습니다.")
