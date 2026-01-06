@@ -200,18 +200,39 @@ def _positions_from_lots(
     account_type: AccountType | None,
     tickers: Sequence[str] | None,
 ) -> list[HoldingPositionView]:
-    stmt = select(HoldingLot).order_by(HoldingLot.trade_date, HoldingLot.id)
+    base_positions_stmt = (
+        select(HoldingPosition)
+        .where(HoldingPosition.quantity > 0)
+        .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
+    )
+    normalized: list[str] = []
     if account_type:
-        stmt = stmt.where(HoldingLot.account_type == account_type)
+        base_positions_stmt = base_positions_stmt.where(HoldingPosition.account_type == account_type)
     if tickers:
         normalized = [normalize_ticker(t) for t in tickers if normalize_ticker(t)]
         if normalized:
-            stmt = stmt.where(HoldingLot.ticker.in_(normalized))
+            base_positions_stmt = base_positions_stmt.where(HoldingPosition.ticker.in_(normalized))
+    base_positions = session.execute(base_positions_stmt).scalars().all()
+
+    stmt = select(HoldingLot).order_by(HoldingLot.trade_date, HoldingLot.id)
+    if account_type:
+        stmt = stmt.where(HoldingLot.account_type == account_type)
+    if tickers and normalized:
+        stmt = stmt.where(HoldingLot.ticker.in_(normalized))
     lots = session.execute(stmt).scalars().all()
-    if not lots:
-        return []
 
     states: dict[tuple[str, AccountType], dict[str, float]] = {}
+    for position in base_positions:
+        key = (position.ticker, position.account_type)
+        states[key] = {
+            "qty": position.quantity,
+            "cost": position.total_cost_krw,
+            "realized": 0.0,
+        }
+
+    if not lots:
+        return _build_position_views(session, states)
+
     for lot in lots:
         key = (lot.ticker, lot.account_type)
         state = states.setdefault(
@@ -237,6 +258,10 @@ def _positions_from_lots(
             proceeds = lot.price_krw * lot.quantity
             state["realized"] += proceeds - cost_reduction
 
+    return _build_position_views(session, states)
+
+
+def _build_position_views(session: Session, states: dict[tuple[str, AccountType], dict[str, float]]) -> list[HoldingPositionView]:
     ticker_set = {ticker for (ticker, _) in states.keys()}
     names = (
         session.execute(

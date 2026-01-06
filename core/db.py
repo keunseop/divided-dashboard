@@ -17,7 +17,13 @@ engine = create_engine(
     connect_args={"check_same_thread": False},  # Streamlit multi-thread 대응
 )
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    future=True,
+    expire_on_commit=False,
+)
 
 
 @contextmanager

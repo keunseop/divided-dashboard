@@ -18,6 +18,18 @@ ACCOUNT_OPTIONS = [acct.value for acct in AccountType if acct != AccountType.ALL
 
 st.title("알림톡 파서")
 
+if "alimtalk_feedback" in st.session_state:
+    feedback = st.session_state.pop("alimtalk_feedback")
+    level = feedback.get("type", "info")
+    message = feedback.get("message", "")
+    alerts = {
+        "success": st.success,
+        "error": st.error,
+        "warning": st.warning,
+        "info": st.info,
+    }
+    alerts.get(level, st.info)(message)
+
 st.markdown(
     """
 알림톡 원문을 붙여넣고 `파싱` 버튼을 누르면 자동으로 금액/통화 정보를 추출합니다.
@@ -324,10 +336,20 @@ if rows:
             except ValueError as exc:
                 st.error(str(exc))
             else:
-                with db_session() as s:
-                    result = upsert_alimtalk_events(s, payloads)
-                st.success(f"Import 완료 - inserted: {result.inserted}, updated: {result.updated}")
-                st.session_state["alimtalk_rows"] = []
+                try:
+                    with db_session() as s:
+                        result = upsert_alimtalk_events(s, payloads)
+                except Exception as exc:
+                    st.session_state["alimtalk_feedback"] = {
+                        "type": "error",
+                        "message": f"Import 실패: {exc}",
+                    }
+                else:
+                    st.session_state["alimtalk_feedback"] = {
+                        "type": "success",
+                        "message": f"Import 완료 - inserted: {result.inserted}, updated: {result.updated}",
+                    }
+                    st.session_state["alimtalk_rows"] = []
                 _force_rerun()
 else:
     st.info("먼저 알림톡 원문을 입력하고 파싱 버튼을 눌러 주세요.")
