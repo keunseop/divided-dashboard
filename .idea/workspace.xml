@@ -4,12 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="현금 입력 기능 추가, 차트 변경">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="알림톡 파서 수정, 수동 매수/매도 오류 수정">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/db.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/holdings_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/holdings_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/dividends.sqlite3" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/var/kis_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/var/kis_token.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pages/2_포트폴리오_가져오기.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/2_포트폴리오_관리.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -285,7 +283,15 @@
       <option name="project" value="LOCAL" />
       <updated>1767260571614</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="알림톡 파서 수정, 수동 매수/매도 오류 수정">
+      <option name="closed" value="true" />
+      <created>1767713336590</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1767713336590</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -305,6 +311,7 @@
     <MESSAGE value="종목 검색 후 차트 보여주기" />
     <MESSAGE value="한투 api 연동 최근 가격 조회" />
     <MESSAGE value="현금 입력 기능 추가, 차트 변경" />
-    <option name="LAST_COMMIT_MESSAGE" value="현금 입력 기능 추가, 차트 변경" />
+    <MESSAGE value="알림톡 파서 수정, 수동 매수/매도 오류 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="알림톡 파서 수정, 수동 매수/매도 오류 수정" />
   </component>
 </project>
