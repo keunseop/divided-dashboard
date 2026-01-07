@@ -2,13 +2,50 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+import shutil
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from core.secrets import get_secret
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = PROJECT_ROOT / "dividends.sqlite3"
-DB_URL = f"sqlite:///{DB_PATH.as_posix()}"
+SEED_DB_PATH = PROJECT_ROOT / "dividends-seed.sqlite3"
+LEGACY_DB_PATH = PROJECT_ROOT / "dividends.sqlite3"
+DEFAULT_DB_PATH = PROJECT_ROOT / "var" / "dividends.sqlite3"
+
+
+def _resolve_db_path() -> Path:
+    override = get_secret("DIVIDENDS_DB_PATH")
+    if override:
+        candidate = Path(override).expanduser()
+        if not candidate.is_absolute():
+            candidate = (PROJECT_ROOT / candidate).resolve()
+        return candidate
+    return DEFAULT_DB_PATH
+
+
+def _ensure_sqlite_db(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        return
+    if LEGACY_DB_PATH.exists():
+        shutil.copy2(LEGACY_DB_PATH, path)
+        return
+    if SEED_DB_PATH.exists():
+        shutil.copy2(SEED_DB_PATH, path)
+        return
+    path.touch()
+
+
+DB_URL_OVERRIDE = get_secret("DIVIDENDS_DB_URL")
+if DB_URL_OVERRIDE:
+    DB_PATH: Path | None = None
+    DB_URL = DB_URL_OVERRIDE
+else:
+    DB_PATH = _resolve_db_path()
+    _ensure_sqlite_db(DB_PATH)
+    DB_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 engine = create_engine(
     DB_URL,

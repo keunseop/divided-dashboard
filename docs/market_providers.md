@@ -11,14 +11,14 @@ Streamlit 페이지에서 호출되는 모든 시세/배당 데이터는 `core/m
 ## 기본 공급자
 - **USProviderYFinance**: yfinance 에서 미국/해외티커 가격과 배당 데이터를 직접 조회합니다.
 - **KRDartProvider** *(default KR provider)*:  
-  - 배당: OpenDART API(`OpenDartReader`)에서 `배당` 보고서를 읽어 DPS(주당 배당금) 내역을 생성합니다. `dart_api_key` 파일에 인증키가 있어야 하며, `pip install opendartreader` 후 사용할 수 있습니다.  
+  - 배당: OpenDART API(`OpenDartReader`)에서 `배당` 보고서를 읽어 DPS(주당 배당금) 내역을 생성합니다. `.streamlit/secrets.toml` 또는 환경 변수에 `DART_API_KEY` 를 설정한 뒤 `pip install opendartreader` 로 의존성을 설치하면 됩니다.  
   - 가격: `KRLocalProvider` 를 통해 `price_cache` → `data/kr_price_snapshot.csv` 순으로만 조회합니다. yfinance/네이버 등 해외 API를 전혀 사용하지 않으므로, 최소 한 번은 스냅샷 파일 또는 price_cache를 수동으로 채워야 합니다.
 - **KRLocalProvider**: 로컬 `dividend_events`+스냅샷 가격만 쓰고 싶을 때 직접 등록해서 사용할 수 있는 공급자입니다.
 - **KRExperimentalKRXProvider**: KRX 스크래핑 실험용 스켈레톤으로 기본 레지스트리에 포함되지 않습니다.
 
 ## DART 연동
 - `core/dart_api.DartDividendFetcher` 가 `OpenDartReader` 를 통해 `배당` 보고서를 호출하고, 보통주 항목만 골라 `DividendPoint` 로 변환합니다.
-- `dart_api_key` 파일에 인증키를 저장하고(줄바꿈/공백 제거), 가상환경에서 `pip install opendartreader==0.2.3` 같은 명령으로 패키지를 설치한 뒤 Streamlit 앱을 재시작하면 됩니다. (`OpenDartReader`/`opendartreader` 어느 이름으로든 import 가능하도록 처리되어 있습니다.)
+- `.streamlit/secrets.toml` 에 `DART_API_KEY="..."` 를 추가하거나 환경 변수로 설정하고, `pip install opendartreader==0.2.3` 같은 명령으로 패키지를 설치한 뒤 Streamlit 앱을 재시작하면 됩니다. (`OpenDartReader`/`opendartreader` 어느 이름으로든 import 가능하도록 처리되어 있습니다.)
 - 네트워크나 키 문제로 DART를 호출할 수 없을 경우, 오류 메시지가 그대로 Surface 되며 사용자 조치가 필요합니다.
 
 ## 확장 방법 예시

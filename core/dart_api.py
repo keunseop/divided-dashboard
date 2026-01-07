@@ -11,6 +11,8 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import requests
 
+from core.secrets import get_secret
+
 
 class DartApiUnavailable(Exception):
     """Raised when OpenDART cannot be used (missing module, API key, or request failure)."""
@@ -39,8 +41,9 @@ class DartDividendFetcher:
 
     STOCK_KND_COMMON_HINTS = ["보통", "COMMON"]
 
-    def __init__(self, api_key_path: str | Path | None = None) -> None:
-        self.api_key_path = Path(api_key_path or "dart_api_key")
+    def __init__(self, api_key: str | None = None, api_key_path: str | Path | None = None) -> None:
+        self._explicit_api_key = api_key.strip() if isinstance(api_key, str) and api_key.strip() else None
+        self.api_key_path = Path(api_key_path) if api_key_path else None
         self._api_key_cache: str | None = None
         self._corp_codes_loaded = False
         self._corp_code_by_stock: dict[str, str] = {}
@@ -126,15 +129,29 @@ class DartDividendFetcher:
     def _load_api_key(self) -> str:
         if self._api_key_cache:
             return self._api_key_cache
-        if not self.api_key_path.exists():
-            raise DartApiUnavailable(
-                f"DART API 키 파일({self.api_key_path})을 찾을 수 없습니다."
-            )
-        key = self.api_key_path.read_text(encoding="utf-8").strip()
-        if not key:
-            raise DartApiUnavailable(f"DART API 키 파일({self.api_key_path})에 값이 없습니다.")
-        self._api_key_cache = key
-        return key
+        if self._explicit_api_key:
+            self._api_key_cache = self._explicit_api_key
+            return self._api_key_cache
+
+        secret_key = get_secret("DART_API_KEY")
+        if secret_key:
+            self._api_key_cache = secret_key
+            return secret_key
+
+        if self.api_key_path:
+            if not self.api_key_path.exists():
+                raise DartApiUnavailable(
+                    f"DART API 키 파일({self.api_key_path})을 찾을 수 없습니다."
+                )
+            key = self.api_key_path.read_text(encoding="utf-8").strip()
+            if not key:
+                raise DartApiUnavailable(
+                    f"DART API 키 파일({self.api_key_path})에 값이 없습니다."
+                )
+            self._api_key_cache = key
+            return key
+
+        raise DartApiUnavailable("DART API 키(DART_API_KEY)가 secrets.toml 또는 환경 변수에 없습니다.")
 
     def _ensure_corp_codes_loaded(self) -> None:
         if self._corp_codes_loaded:

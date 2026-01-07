@@ -3,7 +3,10 @@ __pycache__/
 *.pyc
 *.db
 *.sqlite
+*.sqlite3
 .env
 .streamlit/
 .idea/
 .idea/workspace.xml
+dart_api_key
+!dividends-seed.sqlite3

@@ -6,8 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="알림톡 파서 수정, 수동 매수/매도 오류 수정">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/dart_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/dart_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/db.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/kis/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/settings.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dividends.sqlite3" beforeDir="false" afterPath="$PROJECT_DIR$/dividends.sqlite3" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pages/2_포트폴리오_가져오기.py" beforeDir="false" afterPath="$PROJECT_DIR$/pages/2_포트폴리오_관리.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/var/kis_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/var/kis_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
