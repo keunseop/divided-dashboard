@@ -13,6 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SEED_DB_PATH = PROJECT_ROOT / "dividends-seed.sqlite3"
 LEGACY_DB_PATH = PROJECT_ROOT / "dividends.sqlite3"
 DEFAULT_DB_PATH = PROJECT_ROOT / "var" / "dividends.sqlite3"
+HOME_DB_PATH = Path.home() / ".dividend-dashboard" / "dividends.sqlite3"
 
 
 def _resolve_db_path() -> Path:
@@ -21,21 +22,35 @@ def _resolve_db_path() -> Path:
         candidate = Path(override).expanduser()
         if not candidate.is_absolute():
             candidate = (PROJECT_ROOT / candidate).resolve()
+        if not _ensure_sqlite_db(candidate):
+            raise RuntimeError(f"지정한 DIVIDENDS_DB_PATH({candidate})를 준비할 수 없습니다.")
         return candidate
-    return DEFAULT_DB_PATH
+
+    for idx, candidate in enumerate([DEFAULT_DB_PATH, HOME_DB_PATH]):
+        if _ensure_sqlite_db(candidate):
+            if idx > 0:
+                print(f"[core.db] Using fallback DB path: {candidate}", flush=True)
+            return candidate
+
+    raise RuntimeError("Writable SQLite path를 찾을 수 없습니다. DIVIDENDS_DB_PATH 또는 DIVIDENDS_DB_URL을 설정해 주세요.")
 
 
-def _ensure_sqlite_db(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        return
-    if LEGACY_DB_PATH.exists():
-        shutil.copy2(LEGACY_DB_PATH, path)
-        return
-    if SEED_DB_PATH.exists():
-        shutil.copy2(SEED_DB_PATH, path)
-        return
-    path.touch()
+def _ensure_sqlite_db(path: Path) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            if LEGACY_DB_PATH.exists():
+                shutil.copy2(LEGACY_DB_PATH, path)
+            elif SEED_DB_PATH.exists():
+                shutil.copy2(SEED_DB_PATH, path)
+            else:
+                path.touch()
+        # check writability
+        with path.open("ab"):
+            pass
+        return True
+    except OSError:
+        return False
 
 
 DB_URL_OVERRIDE = get_secret("DIVIDENDS_DB_URL")
@@ -44,7 +59,6 @@ if DB_URL_OVERRIDE:
     DB_URL = DB_URL_OVERRIDE
 else:
     DB_PATH = _resolve_db_path()
-    _ensure_sqlite_db(DB_PATH)
     DB_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 engine = create_engine(
