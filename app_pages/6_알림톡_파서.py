@@ -12,11 +12,13 @@ from core.alimtalk_parser import (
 from core.db import db_session
 from core.fx import fetch_fx_rate_frankfurter
 from core.models import AccountType, TickerMaster
+from core.user_gate import require_user
 from core.utils import normalize_ticker
 
 ACCOUNT_OPTIONS = [acct.value for acct in AccountType if acct != AccountType.ALL]
 
 
+require_user()
 st.title("알림톡 파서")
 
 if "alimtalk_feedback" in st.session_state:

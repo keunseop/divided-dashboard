@@ -25,8 +25,8 @@ admin_dart_prefetch = st.Page("app_pages/94_관리자_DART_배당_미리채우�
 nav = st.navigation(
     {
         "소개": [home],
-        "내 포지션": [dashboard, portfolio, dividend_import, holding_trend],
-        "유틸": [ticker_lookup, alimtalk_parser],
+        "내 포지션": [dashboard, portfolio, dividend_import, holding_trend, alimtalk_parser],
+        "유틸": [ticker_lookup],
         "관리자": [
             admin_ledger,
             admin_master,

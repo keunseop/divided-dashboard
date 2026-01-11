@@ -8,6 +8,7 @@ from core.cash_service import (
 )
 from core.db import db_session
 from core.models import DividendEvent, AccountType, TickerMaster
+from core.user_gate import require_user
 from core.valuation_service import (
     calculate_position_valuations,
     get_valuation_history,
@@ -16,6 +17,7 @@ from core.valuation_service import (
 )
 
 
+require_user()
 st.title("대시보드")
 st.caption("배당 현황, 계좌별 지표, 포트폴리오 평가 추이를 한눈에 확인합니다.")
 
