@@ -3,6 +3,7 @@ import streamlit as st
 from core.db import db_session
 from core.importer import read_and_normalize_csv, upsert_dividends
 
+
 st.title("배당 내역 가져오기")
 st.caption("Excel에서 내려받은 CSV를 업로드하여 배당 원장과 동기화합니다.")
 

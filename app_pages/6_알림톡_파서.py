@@ -16,6 +16,7 @@ from core.utils import normalize_ticker
 
 ACCOUNT_OPTIONS = [acct.value for acct in AccountType if acct != AccountType.ALL]
 
+
 st.title("알림톡 파서")
 
 if "alimtalk_feedback" in st.session_state:

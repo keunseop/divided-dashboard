@@ -27,6 +27,7 @@ def _get_cached_records(cache_key: str):
 
 def _set_cached_records(cache_key: str, records):
     _cache_bucket()[cache_key] = records
+
 require_admin()
 
 st.title("관리자: DART 단건 조회")

@@ -16,8 +16,6 @@ from core.portfolio_importer import (
 )
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import normalize_ticker
-
-st.set_page_config(page_title="포트폴리오 관리", page_icon="📊", layout="wide")
 st.title("포트폴리오 관리")
 st.caption("보유 종목 Snapshot/Lot CSV 업로드, 수동 거래 입력, 기본 포지션 수정까지 한 곳에서 처리합니다.")
 

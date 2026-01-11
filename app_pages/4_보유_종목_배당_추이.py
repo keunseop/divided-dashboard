@@ -21,6 +21,7 @@ from core.models import DividendEvent, TickerMaster
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import infer_market_from_ticker, normalize_ticker
 
+
 st.title("보유 종목 배당 추이")
 st.caption(
     "보유(또는 관심) 종목을 직접 선택하여 최근 배당 추이와 성장 지표를 확인합니다. "

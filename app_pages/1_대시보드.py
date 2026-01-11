@@ -15,6 +15,7 @@ from core.valuation_service import (
     upsert_valuation_snapshots,
 )
 
+
 st.title("대시보드")
 st.caption("배당 현황, 계좌별 지표, 포트폴리오 평가 추이를 한눈에 확인합니다.")
 
