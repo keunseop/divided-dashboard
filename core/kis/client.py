@@ -1,11 +1,52 @@
 from __future__ import annotations
 
 from typing import Any
+from collections import deque
+import time
+import threading
 
 import requests
 
 from core.kis.auth import get_access_token
 from core.kis.settings import load_kis_config
+from core.secrets import get_secret
+
+_RATE_LOCK = threading.Lock()
+_RATE_WINDOW = deque()
+
+
+def _normalize_rate_limit(value: str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        parsed = int(value)
+        return max(0, parsed)
+    except ValueError:
+        return None
+
+
+def _get_rate_limit_per_sec() -> int:
+    override = _normalize_rate_limit(get_secret("KIS_RATE_LIMIT_PER_SEC"))
+    if override is not None:
+        return override
+    return 20
+
+
+def _acquire_rate_limit() -> None:
+    limit = _get_rate_limit_per_sec()
+    if limit <= 0:
+        return
+    while True:
+        now = time.monotonic()
+        with _RATE_LOCK:
+            while _RATE_WINDOW and now - _RATE_WINDOW[0] >= 1.0:
+                _RATE_WINDOW.popleft()
+            if len(_RATE_WINDOW) < limit:
+                _RATE_WINDOW.append(now)
+                return
+            wait = 1.0 - (now - _RATE_WINDOW[0])
+        if wait > 0:
+            time.sleep(wait)
 
 
 def _build_headers(
@@ -46,6 +87,7 @@ def kis_request(
     env: str | None = None,
     timeout: int = 15,
 ) -> dict[str, Any]:
+    _acquire_rate_limit()
     config = load_kis_config(env)
     access_token = get_access_token(env=config.env)
     url = f"{config.base_url}{path}"

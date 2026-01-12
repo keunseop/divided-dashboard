@@ -4,13 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="포트폴리오 수정 기능 보완">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="pykis 적용 및 가격 동시 요청 처리">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/5_종목_검색.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/5_종목_검색.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/kis/client.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/kis/pykis_client.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/core/market_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/market_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/market_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/market_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/valuation_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/valuation_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/var/kis_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/var/kis_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -342,7 +342,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768236463829</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="pykis 적용 및 가격 동시 요청 처리">
+      <option name="closed" value="true" />
+      <created>1768239397909</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1768239397909</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -369,6 +377,7 @@
     <MESSAGE value="내 포지션 부분에 password 추가" />
     <MESSAGE value="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트" />
     <MESSAGE value="포트폴리오 수정 기능 보완" />
-    <option name="LAST_COMMIT_MESSAGE" value="포트폴리오 수정 기능 보완" />
+    <MESSAGE value="pykis 적용 및 가격 동시 요청 처리" />
+    <option name="LAST_COMMIT_MESSAGE" value="pykis 적용 및 가격 동시 요청 처리" />
   </component>
 </project>

@@ -120,10 +120,10 @@ def _render_candlestick_chart(df: pd.DataFrame, title: str) -> None:
                 high=df["high"],
                 low=df["low"],
                 close=df["close"],
-                increasing_line_color="#d90429",
-                increasing_fillcolor="#d90429",
-                decreasing_line_color="#0057d9",
-                decreasing_fillcolor="#0057d9",
+                increasing_line_color="#0f766e",
+                increasing_fillcolor="#0f766e",
+                decreasing_line_color="#b91c1c",
+                decreasing_fillcolor="#b91c1c",
                 name="Price",
             )
         ]
@@ -134,10 +134,26 @@ def _render_candlestick_chart(df: pd.DataFrame, title: str) -> None:
         yaxis_title="가격",
         template="plotly_white",
         xaxis_rangeslider_visible=False,
-        height=420,
-        margin=dict(l=10, r=10, t=50, b=20),
+        height=520,
+        margin=dict(l=10, r=10, t=60, b=20),
+        font=dict(family="IBM Plex Sans, sans-serif", size=12, color="#0f172a"),
+        plot_bgcolor="#f8fafc",
+        paper_bgcolor="#f8fafc",
+        hovermode="x unified",
     )
-    fig.update_xaxes(tickformat="%Y/%m/%d")
+    fig.update_xaxes(
+        tickformat="%Y/%m/%d",
+        showgrid=False,
+        zeroline=False,
+        linecolor="#cbd5f5",
+        ticks="outside",
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="#e2e8f0",
+        zeroline=False,
+        ticks="outside",
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -150,6 +166,9 @@ def _render_price_chart_kr(ticker: str) -> None:
         return
 
     st.subheader("최근 5년 가격 추이")
+    last_date = df["date"].max()
+    if pd.notna(last_date):
+        st.caption(f"가격 데이터 범위: {df['date'].min():%Y-%m-%d} ~ {last_date:%Y-%m-%d}")
     _render_candlestick_chart(df, f"{ticker} 가격(주간)")
 
 @st.cache_data(ttl=60 * 60 * 6)
@@ -175,6 +194,9 @@ def _render_price_chart_overseas(market: str, ticker: str) -> None:
         return
 
     st.subheader("최근 5년 가격 추이")
+    last_date = df["date"].max()
+    if pd.notna(last_date):
+        st.caption(f"가격 데이터 범위: {df['date'].min():%Y-%m-%d} ~ {last_date:%Y-%m-%d}")
     _render_candlestick_chart(df, f"{ticker} 가격(주간)")
 
 owned_map = _load_owned_tickers()
@@ -331,10 +353,3 @@ st.dataframe(history_df, hide_index=True, use_container_width=True)
 if st.button("배당 데이터 DB 반영", type="primary"):
     inserted, updated = _persist_dividend_cache(ticker, dividend_history)
     st.success(f"동기화 완료: 신규 {inserted}건, 갱신 {updated}건")
-
-
-
-
-
-
-
