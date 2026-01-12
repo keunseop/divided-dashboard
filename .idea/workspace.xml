@@ -4,14 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="좌측 메뉴 구성 변경">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="내 포지션 부분에 password 추가">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/6_알림톡_파서.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/6_알림톡_파서.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/cash_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/cash_service.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,17 +45,17 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.check_dividend_metrics.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_market_data.executor&quot;: &quot;Run&quot;,
-    &quot;Python.update_kr_price_cache.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.check_dividend_metrics.executor": "Run",
+    "Python.test_market_data.executor": "Run",
+    "Python.update_kr_price_cache.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "settings.editor.selected.configurable": "terminal"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Python.update_kr_price_cache">
     <configuration name="check_dividend_metrics" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="divided-dashboard" />
@@ -319,7 +315,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768147579830</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary="내 포지션 부분에 password 추가">
+      <option name="closed" value="true" />
+      <created>1768148867055</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1768148867055</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -343,6 +347,7 @@
     <MESSAGE value="DB 버전 관리에서 분리, 주요 key 제외" />
     <MESSAGE value="DB write 실패 수정" />
     <MESSAGE value="좌측 메뉴 구성 변경" />
-    <option name="LAST_COMMIT_MESSAGE" value="좌측 메뉴 구성 변경" />
+    <MESSAGE value="내 포지션 부분에 password 추가" />
+    <option name="LAST_COMMIT_MESSAGE" value="내 포지션 부분에 password 추가" />
   </component>
 </project>

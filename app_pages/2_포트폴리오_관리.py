@@ -1,7 +1,13 @@
+from datetime import date
+from pathlib import Path
+import sqlite3
+
 import pandas as pd
 import streamlit as st
 from sqlalchemy import select
 
+from core.cash_service import apply_cash_delta, get_latest_cash_snapshot
+from core.db import DB_PATH
 from core.db import db_session
 from core.holdings_service import get_positions, list_trades, record_trade
 from core.fx import fetch_fx_rate_frankfurter
@@ -21,6 +27,12 @@ from core.utils import normalize_ticker
 require_user()
 st.title("포트폴리오 관리")
 st.caption("보유 종목 Snapshot/Lot CSV 업로드, 수동 거래 입력, 기본 포지션 수정까지 한 곳에서 처리합니다.")
+
+
+def _dump_sqlite_db(path: Path) -> str:
+    with sqlite3.connect(path) as conn:
+        return "\n".join(conn.iterdump())
+
 
 
 def _render_csv_importers():
@@ -313,7 +325,7 @@ if submitted_trade:
                 qty_available = positions[0].quantity if positions else 0.0
                 if qty_available < trade_quantity - 1e-8:
                     raise ValueError(f"보유 수량({qty_available:,.4f})보다 많은 매도를 입력했습니다.")
-            record_trade(
+            lot = record_trade(
                 session,
                 trade_date=trade_date,
                 ticker=trade_ticker,
@@ -325,6 +337,33 @@ if submitted_trade:
                 fx_rate=trade_fx_value if trade_currency_norm != "KRW" else 1.0,
                 note=trade_note or None,
                 source="manual",
+            )
+            cash_delta = lot.amount_krw if side_enum == TradeSide.SELL else -lot.amount_krw
+            target_date = trade_date
+            latest_account_cash = get_latest_cash_snapshot(
+                session,
+                account_type=AccountType(trade_account),
+            )
+            latest_all_cash = get_latest_cash_snapshot(
+                session,
+                account_type=AccountType.ALL,
+            )
+            for latest_cash in (latest_account_cash, latest_all_cash):
+                if latest_cash and latest_cash.snapshot_date > target_date:
+                    target_date = latest_cash.snapshot_date
+            apply_cash_delta(
+                session,
+                account_type=AccountType(trade_account),
+                snapshot_date=target_date,
+                delta_krw=cash_delta,
+                note=f"manual trade {side_enum.value} {trade_ticker}",
+            )
+            apply_cash_delta(
+                session,
+                account_type=AccountType.ALL,
+                snapshot_date=target_date,
+                delta_krw=cash_delta,
+                note=f"manual trade {side_enum.value} {trade_ticker}",
             )
         st.success("거래가 저장되었습니다.")
     except Exception as exc:
@@ -422,3 +461,25 @@ else:
     with st.expander("CSV 업로드 (초기 세팅/재업로드 시 펼치세요)", expanded=False):
         st.caption("이미 거래/포지션이 있다면 중복 입력에 주의해 주세요.")
         _render_csv_importers()
+
+st.divider()
+st.header("서버 DB 내보내기")
+if DB_PATH is None:
+    st.warning("현재 DB가 SQLite 파일 경로로 설정되지 않아 내보내기를 지원하지 않습니다.")
+else:
+    dump_key = "db_sql_dump"
+    if st.button("SQL 내보내기 준비", key="db_export_prepare"):
+        try:
+            st.session_state[dump_key] = _dump_sqlite_db(DB_PATH)
+            st.success("SQL 덤프를 생성했습니다. 다운로드 버튼을 눌러 저장하세요.")
+        except Exception as exc:
+            st.error(f"SQL 덤프 생성 실패: {exc}")
+
+    dump_payload = st.session_state.get(dump_key)
+    if dump_payload:
+        st.download_button(
+            "SQL 파일 다운로드",
+            data=dump_payload,
+            file_name=f"dividends_export_{date.today().isoformat()}.sql",
+            mime="application/sql",
+        )

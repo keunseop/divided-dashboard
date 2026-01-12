@@ -95,3 +95,64 @@ def get_latest_cash_snapshot(
         cash_krw=row.cash_krw,
         note=row.note,
     )
+
+
+def get_latest_cash_snapshot_on_or_before(
+    session: Session,
+    *,
+    account_type: AccountType,
+    snapshot_date: date,
+) -> CashSnapshotView | None:
+    stmt = (
+        select(CashSnapshot)
+        .where(
+            CashSnapshot.account_type == account_type,
+            CashSnapshot.snapshot_date <= snapshot_date,
+        )
+        .order_by(CashSnapshot.snapshot_date.desc())
+        .limit(1)
+    )
+    row = session.execute(stmt).scalar_one_or_none()
+    if row is None:
+        return None
+    return CashSnapshotView(
+        snapshot_date=row.snapshot_date,
+        account_type=row.account_type,
+        cash_krw=row.cash_krw,
+        note=row.note,
+    )
+
+
+def apply_cash_delta(
+    session: Session,
+    *,
+    account_type: AccountType,
+    snapshot_date: date,
+    delta_krw: float,
+    note: str | None = None,
+) -> CashSnapshot | None:
+    if abs(delta_krw) < 1e-9:
+        return None
+
+    base_snapshot = get_latest_cash_snapshot_on_or_before(
+        session,
+        account_type=account_type,
+        snapshot_date=snapshot_date,
+    )
+    if base_snapshot is None:
+        if delta_krw < 0:
+            return None
+        new_cash = delta_krw
+    else:
+        new_cash = base_snapshot.cash_krw + delta_krw
+
+    if new_cash < 0:
+        return None
+
+    return upsert_cash_snapshot(
+        session,
+        snapshot_date=snapshot_date,
+        account_type=account_type,
+        cash_krw=new_cash,
+        note=note,
+    )
