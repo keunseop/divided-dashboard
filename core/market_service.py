@@ -11,6 +11,7 @@ from core.market_data import (
     MarketDataProvider,
     PriceQuote,
     get_registered_provider,
+    is_price_cache_enabled,
 )
 from core.models import DividendCache, PriceCache
 from core.utils import infer_market_from_ticker, normalize_ticker
@@ -43,7 +44,7 @@ def get_price_quote_for_ticker(
     normalized = normalize_ticker(ticker)
     market_code = infer_market_from_ticker(normalized, market)
 
-    if not force_refresh:
+    if not force_refresh and is_price_cache_enabled():
         cached = session.execute(
             select(PriceCache)
             .where(PriceCache.ticker == normalized)

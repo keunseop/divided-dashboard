@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 from core.dart_api import DartApiUnavailable, DartDividendFetcher
 from core.kis.domestic_quotes import fetch_domestic_price_now
 from core.kis.overseas_quotes import fetch_overseas_price_history, fetch_overseas_price_now
+from core.kis.pykis_client import get_pykis, is_pykis_configured, is_pykis_enabled
 from core.kis.settings import get_kis_setting
+from core.secrets import get_secret
 from core.models import DividendCache, DividendEvent, PriceCache
 from core.utils import normalize_market_code, normalize_ticker
 
@@ -47,7 +49,8 @@ class MarketDataProvider(ABC):
     def get_current_price(self, session: Session, ticker: str) -> PriceQuote:
         normalized = normalize_ticker(ticker)
         quote = self._fetch_current_price(normalized)
-        _upsert_price_cache(session, quote)
+        if is_price_cache_enabled():
+            _upsert_price_cache(session, quote)
         return quote
 
     def get_dividend_history(
@@ -83,6 +86,22 @@ class MarketDataProvider(ABC):
 
 
 PROVIDER_REGISTRY: Dict[str, MarketDataProvider] = {}
+
+
+def _normalize_bool(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return None
+
+
+def is_price_cache_enabled() -> bool:
+    flag = _normalize_bool(get_secret("PRICE_CACHE_ENABLED"))
+    return True if flag is None else flag
 
 
 def register_market_provider(market_code: str, provider: MarketDataProvider) -> None:
@@ -233,6 +252,39 @@ class KRYFinanceProvider(BaseYFinanceProvider):
                 seen.add(symbol)
                 deduped.append(symbol)
         return deduped
+
+
+class PyKisPriceProvider(MarketDataProvider):
+    name = "pykis"
+
+    def __init__(self, market_hint: str | None = None) -> None:
+        self.market_hint = market_hint
+
+    def _fetch_current_price(self, ticker: str) -> PriceQuote:
+        kis = get_pykis()
+        try:
+            quote = None
+            if self.market_hint:
+                try:
+                    stock = kis.stock(ticker, market=self.market_hint)
+                    quote = stock.quote()
+                except Exception:
+                    quote = None
+            if quote is None:
+                stock = kis.stock(ticker)
+                quote = stock.quote()
+            price = float(quote.price)
+            currency = (getattr(quote, "currency", None) or "KRW").upper()
+            as_of = getattr(quote, "as_of", None) or datetime.utcnow()
+            return PriceQuote(
+                ticker=ticker,
+                price=price,
+                currency=currency,
+                as_of=as_of,
+                source=self.name,
+            )
+        except Exception as exc:  # pragma: no cover - network/provider failure
+            raise ValueError(f"{ticker}: pykis 현재가 조회 실패 ({exc})") from exc
 
 
 class KISDomesticPriceProvider(MarketDataProvider):
@@ -600,8 +652,12 @@ class KRExperimentalKRXProvider(MarketDataProvider):
         raise NotImplementedError("KRX scraping provider is experimental and not enabled by default.")
 
 
-register_market_provider("US", KISOverseasPriceProvider())
-register_market_provider("KR", KRDartProvider(price_provider=KISDomesticPriceProvider()))
+use_pykis = is_pykis_enabled() and is_pykis_configured()
+us_price_provider: MarketDataProvider = PyKisPriceProvider("US") if use_pykis else KISOverseasPriceProvider()
+kr_price_provider: MarketDataProvider = PyKisPriceProvider("KR") if use_pykis else KISDomesticPriceProvider()
+
+register_market_provider("US", us_price_provider)
+register_market_provider("KR", KRDartProvider(price_provider=kr_price_provider))
 
 
 def _upsert_price_cache(session: Session, quote: PriceQuote) -> None:

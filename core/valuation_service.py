@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+import logging
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from core.db import db_session
 from core.fx import fetch_fx_rate_frankfurter
 from core.holdings_service import get_positions
 from core.market_data import PriceQuote
 from core.market_service import get_price_quote_for_ticker
 from core.models import AccountType, HoldingValuationSnapshot
+from core.secrets import get_secret
 
 
 @dataclass(slots=True)
@@ -73,21 +78,77 @@ def calculate_position_valuations(
     price_cache: Dict[str, PriceQuote] = {}
     fx_cache: Dict[str, float] = {}
     today = date.today()
+    logger = logging.getLogger(__name__)
+    failed_tickers: set[str] = set()
+
+    log_enabled = force_refresh
+
+    def _emit_fetch_log(message: str) -> None:
+        logger.info(message)
+        if log_enabled:
+            print(message, flush=True)
+
+    def _resolve_workers(total: int) -> int:
+        raw = get_secret("PRICE_FETCH_WORKERS")
+        if raw:
+            try:
+                value = int(raw)
+                return max(1, value)
+            except ValueError:
+                pass
+        return min(8, max(1, total))
+
+    def _fetch_quote_worker(
+        ticker: str,
+        *,
+        force_refresh_worker: bool,
+    ) -> tuple[str, PriceQuote | None, Exception | None]:
+        start = time.perf_counter()
+        try:
+            with db_session() as worker_session:
+                quote = get_price_quote_for_ticker(
+                    worker_session,
+                    ticker,
+                    force_refresh=force_refresh_worker,
+                )
+            if log_enabled:
+                elapsed = time.perf_counter() - start
+                _emit_fetch_log(f"price_fetch ticker={ticker} elapsed={elapsed:.3f}s")
+            return ticker, quote, None
+        except Exception as exc:
+            if log_enabled:
+                elapsed = time.perf_counter() - start
+                message = f"price_fetch_failed ticker={ticker} elapsed={elapsed:.3f}s error={exc}"
+                logger.warning(message)
+                print(message, flush=True)
+            return ticker, None, exc
+
+    unique_tickers = sorted({pos.ticker.upper() for pos in positions})
+    if unique_tickers:
+        workers = _resolve_workers(len(unique_tickers))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [
+                executor.submit(
+                    _fetch_quote_worker,
+                    ticker,
+                    force_refresh_worker=force_refresh,
+                )
+                for ticker in unique_tickers
+            ]
+            for future in as_completed(futures):
+                ticker, quote, exc = future.result()
+                if exc:
+                    errors.append(f"{ticker}: {exc}")
+                    failed_tickers.add(ticker)
+                    continue
+                if quote is not None:
+                    price_cache[ticker] = quote
 
     for position in positions:
         ticker = position.ticker.upper()
         quote = price_cache.get(ticker)
         if quote is None:
-            try:
-                quote = get_price_quote_for_ticker(
-                    session,
-                    ticker,
-                    force_refresh=force_refresh,
-                )
-                price_cache[ticker] = quote
-            except Exception as exc:  # pragma: no cover - provider/network failure
-                errors.append(f"{ticker}: {exc}")
-                quote = None
+            quote = None
 
         price_currency = None
         price_as_of = None

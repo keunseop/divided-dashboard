@@ -4,8 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트">
-      <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="포트폴리오 수정 기능 보완">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/market_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/market_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/market_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/market_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/valuation_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/valuation_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/var/kis_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/var/kis_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -329,7 +334,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768230464026</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="포트폴리오 수정 기능 보완">
+      <option name="closed" value="true" />
+      <created>1768236463829</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1768236463829</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -355,6 +368,7 @@
     <MESSAGE value="좌측 메뉴 구성 변경" />
     <MESSAGE value="내 포지션 부분에 password 추가" />
     <MESSAGE value="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트" />
-    <option name="LAST_COMMIT_MESSAGE" value="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트" />
+    <MESSAGE value="포트폴리오 수정 기능 보완" />
+    <option name="LAST_COMMIT_MESSAGE" value="포트폴리오 수정 기능 보완" />
   </component>
 </project>
