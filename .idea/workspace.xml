@@ -4,10 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="내 포지션 부분에 password 추가">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트">
       <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/cash_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/cash_service.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -323,7 +321,15 @@
       <option name="project" value="LOCAL" />
       <updated>1768148867055</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트">
+      <option name="closed" value="true" />
+      <created>1768230464026</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1768230464026</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -348,6 +354,7 @@
     <MESSAGE value="DB write 실패 수정" />
     <MESSAGE value="좌측 메뉴 구성 변경" />
     <MESSAGE value="내 포지션 부분에 password 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="내 포지션 부분에 password 추가" />
+    <MESSAGE value="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트" />
+    <option name="LAST_COMMIT_MESSAGE" value="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트" />
   </component>
 </project>

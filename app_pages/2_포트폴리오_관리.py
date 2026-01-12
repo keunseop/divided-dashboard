@@ -375,35 +375,33 @@ st.write(
     "초기 CSV 업로드 때 입력한 수량/평균 매입가가 잘못되었다면 여기에서 바로 수정할 수 있습니다. "
     "이 값은 이후 추가 매수/매도 거래 전에 가지고 있던 기준 수량으로 사용되며, 아래 수동 거래 내역은 그대로 유지됩니다."
 )
+st.caption("현재 화면에는 거래 내역을 반영한 최신 수량/평균 매입가가 표시됩니다.")
 
 with db_session() as session:
-    base_positions = (
-        session.execute(
-            select(HoldingPosition, TickerMaster.name_ko)
-            .join(
-                TickerMaster,
-                TickerMaster.ticker == HoldingPosition.ticker,
-                isouter=True,
-            )
-            .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
-        ).all()
-    )
+    base_positions = session.execute(
+        select(HoldingPosition)
+        .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
+    ).scalars().all()
+    base_map = {(pos.account_type, pos.ticker): pos for pos in base_positions}
+    current_positions = get_positions(session)
 
-if not base_positions:
+if not current_positions:
     st.info("수정할 기본 포지션이 없습니다. 먼저 CSV를 업로드하거나 거래를 입력해 포지션을 만들어 주세요.")
 else:
     position_options = [
         {
             "key": f"{pos.account_type.value}:{pos.ticker}",
             "label": f"[{pos.account_type.value}] {pos.ticker}"
-            + (f" ({name})" if name else ""),
+            + (f" ({pos.name_ko})" if pos.name_ko else ""),
             "account": pos.account_type,
             "ticker": pos.ticker,
             "quantity": float(pos.quantity),
             "avg": float(pos.avg_buy_price_krw),
-            "note": pos.note or "",
+            "note": base_map.get((pos.account_type, pos.ticker), None).note
+            if base_map.get((pos.account_type, pos.ticker), None)
+            else "",
         }
-        for pos, name in base_positions
+        for pos in current_positions
     ]
     selected_idx = st.selectbox(
         "수정할 기본 포지션 선택",
@@ -437,6 +435,62 @@ else:
     if st.button("기본 포지션 업데이트", use_container_width=True):
         try:
             with db_session() as session:
+                base_qty = float(edit_qty)
+                base_avg = float(edit_avg)
+                lots = (
+                    session.execute(
+                        select(HoldingLot)
+                        .where(
+                            HoldingLot.ticker == selected["ticker"],
+                            HoldingLot.account_type == selected["account"],
+                        )
+                        .order_by(HoldingLot.trade_date, HoldingLot.id)
+                    )
+                    .scalars()
+                    .all()
+                )
+                if lots:
+                    net_qty = 0.0
+                    for lot in lots:
+                        net_qty += lot.quantity if lot.side == TradeSide.BUY else -lot.quantity
+                    base_qty = base_qty - net_qty
+                    if base_qty < -1e-8:
+                        raise ValueError("현재 수량이 거래 내역보다 적어 기본값을 계산할 수 없습니다.")
+                    base_qty = max(base_qty, 0.0)
+
+                    desired_cost = float(edit_qty) * float(edit_avg)
+                    q = base_qty
+                    a = 1.0
+                    b = 0.0
+                    for lot in lots:
+                        amount_krw = lot.amount_krw
+                        if amount_krw is None:
+                            amount_krw = (lot.price_krw or 0.0) * lot.quantity
+                        if lot.side == TradeSide.BUY:
+                            q += lot.quantity
+                            b += amount_krw
+                        else:
+                            if q <= 0:
+                                raise ValueError("매도 거래가 기본 수량을 초과합니다.")
+                            if lot.quantity - q > 1e-8:
+                                raise ValueError("매도 수량이 보유 수량을 초과합니다.")
+                            factor = (q - lot.quantity) / q
+                            q -= lot.quantity
+                            a *= factor
+                            b *= factor
+                    if a <= 1e-12:
+                        if abs(desired_cost - b) > 1e-4:
+                            raise ValueError("기본 평균 매입가를 계산할 수 없습니다.")
+                        base_cost = 0.0
+                    else:
+                        base_cost = (desired_cost - b) / a
+                    if base_cost < -1e-6:
+                        raise ValueError("기본 평균 매입가 계산 결과가 음수입니다.")
+                    base_cost = max(base_cost, 0.0)
+                    base_avg = base_cost / base_qty if base_qty > 0 else 0.0
+                else:
+                    base_cost = base_qty * base_avg
+
                 position = session.execute(
                     select(HoldingPosition).where(
                         HoldingPosition.ticker == selected["ticker"],
@@ -444,10 +498,14 @@ else:
                     )
                 ).scalar_one_or_none()
                 if not position:
-                    raise ValueError("선택한 포지션을 다시 불러올 수 없습니다.")
-                position.quantity = edit_qty
-                position.avg_buy_price_krw = edit_avg
-                position.total_cost_krw = edit_qty * edit_avg
+                    position = HoldingPosition(
+                        ticker=selected["ticker"],
+                        account_type=selected["account"],
+                    )
+                    session.add(position)
+                position.quantity = base_qty
+                position.avg_buy_price_krw = base_avg
+                position.total_cost_krw = base_cost
                 position.note = edit_note or None
             st.success("기본 포지션을 업데이트했습니다. 아래 미리보기에서 확인해 주세요.")
         except Exception as exc:
