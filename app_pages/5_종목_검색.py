@@ -1,4 +1,5 @@
-﻿import pandas as pd
+﻿import altair as alt
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from datetime import date
@@ -153,6 +154,7 @@ def _render_candlestick_chart(df: pd.DataFrame, title: str) -> None:
         gridcolor="#e2e8f0",
         zeroline=False,
         ticks="outside",
+        tickformat=",.0f",
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -301,18 +303,26 @@ trailing = compute_trailing_dividend_yield(dividend_history, price_quote)
 
 st.subheader(f"{ticker} 요약")
 col1, col2, col3 = st.columns(3)
-col1.metric("현재가", f"{price_quote.price:,.2f} {price_quote.currency}", help=f"as of {price_quote.as_of:%Y-%m-%d %H:%M}")
+col1.metric("현재가", f"{price_quote.price:,.0f} {price_quote.currency}", help=f"as of {price_quote.as_of:%Y-%m-%d %H:%M}")
 trailing_yield = trailing["trailing_yield"]
 col2.metric(
     "Trailing Yield",
     f"{trailing_yield:.2%}" if trailing_yield is not None else "N/A",
-    help=f"Trailing dividend: {trailing['trailing_dividend']:.4f} {price_quote.currency}",
+    help=f"Trailing dividend: {trailing['trailing_dividend']:,.0f} {price_quote.currency}",
 )
 trend = metrics["trend"]
 col3.metric("Trend", trend)
 
 st.subheader("연도별 배당 추이")
-st.bar_chart(annual, x="year", y="annual_dividend")
+annual_chart = alt.Chart(annual).mark_bar().encode(
+    x=alt.X("year:O", title="연도", sort=None),
+    y=alt.Y("annual_dividend:Q", title="연간 배당", axis=alt.Axis(format=",.0f")),
+    tooltip=[
+        alt.Tooltip("year:O", title="연도"),
+        alt.Tooltip("annual_dividend:Q", title="연간 배당", format=",.0f"),
+    ],
+)
+st.altair_chart(annual_chart, use_container_width=True)
 
 yoy_series = [
     {"year": year, "yoy": value}

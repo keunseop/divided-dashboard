@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from sqlalchemy import select
@@ -268,7 +269,7 @@ display_df = pd.DataFrame(
             "Ticker": row["ticker"],
             "Name": row["name"],
             "Market": row["market"],
-            "Price": f"{row['price']:,.2f} {row['price_currency']}",
+            "Price": f"{row['price']:,.0f} {row['price_currency']}",
             "Trailing Yield": f"{row['trailing_yield']:.2%}" if row["trailing_yield"] is not None else "N/A",
             "YoY (Last Year)": f"{row['yoy_last']:.2%}" if row["yoy_last"] is not None else "N/A",
             "3y CAGR": f"{row['cagr_3y']:.2%}" if row["cagr_3y"] is not None else "N/A",
@@ -291,10 +292,18 @@ for row in summary_rows:
         )
         st.write(
             f"가격 기준일: {row['price_time']:%Y-%m-%d %H:%M} | "
-            f"Trailing Dividend: {row['trailing_dividend']:.4f} {row['price_currency']} | "
+            f"Trailing Dividend: {row['trailing_dividend']:,.0f} {row['price_currency']} | "
             f"Trailing Yield: {trailing_yield_text}"
         )
-        st.bar_chart(row["annual_df"], x="year", y="annual_dividend")
+        annual_chart = alt.Chart(row["annual_df"]).mark_bar().encode(
+            x=alt.X("year:O", title="연도", sort=None),
+            y=alt.Y("annual_dividend:Q", title="연간 배당", axis=alt.Axis(format=",.0f")),
+            tooltip=[
+                alt.Tooltip("year:O", title="연도"),
+                alt.Tooltip("annual_dividend:Q", title="연간 배당", format=",.0f"),
+            ],
+        )
+        st.altair_chart(annual_chart, use_container_width=True)
 
 if errors:
     st.warning("일부 종목은 오류로 제외되었습니다:")

@@ -4,9 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동">
-      <change beforePath="$PROJECT_DIR$/core/admin_gate.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/admin_gate.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/user_gate.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/user_gate.py" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="비밀번호 입력 일단 비활성화">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/5_종목_검색.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/5_종목_검색.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/6_알림톡_파서.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/6_알림톡_파서.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/93_관리자_DART_단건_조회.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/93_관리자_DART_단건_조회.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/94_관리자_DART_배당_미리채우기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/94_관리자_DART_배당_미리채우기.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -362,11 +368,18 @@
       <option name="project" value="LOCAL" />
       <updated>1768482132522</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="비밀번호 입력 일단 비활성화">
+      <option name="closed" value="true" />
+      <created>1768482423245</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1768482423245</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="ticker 추가 완료" />
     <MESSAGE value="원화 표시 완료, missing ticker 추가 기능 완료" />
     <MESSAGE value="workspace 파일 추가" />
     <MESSAGE value="ignore" />
@@ -391,6 +404,7 @@
     <MESSAGE value="pykis 적용 및 가격 동시 요청 처리" />
     <MESSAGE value="가격 조회 방식 limit 처리, 종목 검색 차트 수정" />
     <MESSAGE value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
-    <option name="LAST_COMMIT_MESSAGE" value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
+    <MESSAGE value="비밀번호 입력 일단 비활성화" />
+    <option name="LAST_COMMIT_MESSAGE" value="비밀번호 입력 일단 비활성화" />
   </component>
 </project>

@@ -276,8 +276,8 @@ with st.expander("현재 포지션", expanded=True):
             column_config={
                 "Symbol": st.column_config.TextColumn("종목"),
                 "Account": st.column_config.TextColumn("계좌"),
-                "Quantity": st.column_config.NumberColumn("수량", format="%.4f"),
-                "Avg Buy Price (KRW)": st.column_config.NumberColumn("평균 매입가 (KRW)", format="%.2f"),
+                "Quantity": st.column_config.NumberColumn("수량", format="%.0f"),
+                "Avg Buy Price (KRW)": st.column_config.NumberColumn("평균 매입가 (KRW)", format="%.0f"),
                 "Cost Basis (KRW)": st.column_config.NumberColumn("Cost Basis (KRW)", format="%.0f"),
                 "Realized PnL (KRW)": st.column_config.NumberColumn("실현손익 (KRW)", format="%.0f"),
             },
@@ -333,8 +333,8 @@ with st.expander("거래 내역", expanded=False):
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Quantity": st.column_config.NumberColumn("수량", format="%.4f"),
-                "Price": st.column_config.NumberColumn("단가", format="%.2f"),
+                "Quantity": st.column_config.NumberColumn("수량", format="%.0f"),
+                "Price": st.column_config.NumberColumn("단가", format="%.0f"),
                 "Price (KRW)": st.column_config.NumberColumn("단가 (KRW)", format="%.0f"),
                 "Amount (KRW)": st.column_config.NumberColumn("금액 (KRW)", format="%.0f"),
             },
@@ -380,9 +380,9 @@ with st.expander("수동 거래 입력", expanded=False):
         try:
             fetched = fetch_fx_rate_frankfurter(trade_currency, "KRW", trade_date)
             if fetched:
-                rate = round(float(fetched), 4)
+                rate = float(fetched)
                 st.session_state[fx_key] = rate
-                auto_fx_info = f"{trade_currency} 환율 자동 입력: {rate:.4f}"
+                auto_fx_info = f"{trade_currency} 환율 자동 입력: {rate:,.0f}"
             else:
                 st.session_state[fx_key] = 0.0
                 auto_fx_error = f"{trade_currency} 환율을 가져오지 못했습니다. 값을 직접 입력해 주세요."
@@ -427,7 +427,7 @@ with st.expander("수동 거래 입력", expanded=False):
                     positions = get_positions(session, account_type=AccountType(trade_account), tickers=[trade_ticker])
                     qty_available = positions[0].quantity if positions else 0.0
                     if qty_available < trade_quantity - 1e-8:
-                        raise ValueError(f"보유 수량({qty_available:,.4f})보다 많은 매도를 입력했습니다.")
+                        raise ValueError(f"보유 수량({qty_available:,.0f})보다 많은 매도를 입력했습니다.")
                 lot = record_trade(
                     session,
                     trade_date=trade_date,
@@ -522,14 +522,14 @@ with st.expander("기본 포지션 수정", expanded=False):
             "기본 수량",
             min_value=0.0,
             step=1.0,
-            format="%.4f",
+            format="%.0f",
             key="position_edit_qty",
         )
         edit_avg = st.number_input(
             "기본 평균 매입가 (KRW)",
             min_value=0.0,
             step=10.0,
-            format="%.4f",
+            format="%.0f",
             key="position_edit_avg",
         )
         edit_note = st.text_input("비고(선택)", key="position_edit_note")

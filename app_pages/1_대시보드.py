@@ -1,3 +1,4 @@
+import altair as alt
 import streamlit as st
 import pandas as pd
 from sqlalchemy import select
@@ -79,18 +80,34 @@ yoy = (ytd / prev_year - 1) * 100 if prev_year > 0 else None
 c1, c2, c3 = st.columns(3)
 c1.metric("올해 누적", fmt_krw(ytd))
 c2.metric("작년 총액", fmt_krw(prev_year))
-c3.metric("YoY(참고)", f"{yoy:,.1f}%" if yoy is not None else "N/A")
+c3.metric("YoY(참고)", f"{yoy:,.2f}%" if yoy is not None else "N/A")
 
 st.divider()
 
 yearly = df.groupby("year", as_index=False)["value"].sum().sort_values("year")
 st.subheader("연도별 배당 추이")
-st.bar_chart(yearly, x="year", y="value")
+yearly_chart = alt.Chart(yearly).mark_bar().encode(
+    x=alt.X("year:O", title="연도", sort=None),
+    y=alt.Y("value:Q", title="배당금", axis=alt.Axis(format=",.0f")),
+    tooltip=[
+        alt.Tooltip("year:O", title="연도"),
+        alt.Tooltip("value:Q", title="배당금", format=",.0f"),
+    ],
+)
+st.altair_chart(yearly_chart, use_container_width=True)
 
 df["ym"] = df["payDate"].dt.to_period("M").astype(str)
 monthly = df.groupby("ym", as_index=False)["value"].sum().sort_values("ym")
 st.subheader("월별 배당 추이")
-st.line_chart(monthly, x="ym", y="value")
+monthly_chart = alt.Chart(monthly).mark_line(point=True).encode(
+    x=alt.X("ym:O", title="월", sort=None),
+    y=alt.Y("value:Q", title="배당금", axis=alt.Axis(format=",.0f")),
+    tooltip=[
+        alt.Tooltip("ym:O", title="월"),
+        alt.Tooltip("value:Q", title="배당금", format=",.0f"),
+    ],
+)
+st.altair_chart(monthly_chart, use_container_width=True)
 
 st.subheader("종목 TOP 15")
 top_col1, top_col2 = st.columns([2, 1])
@@ -141,7 +158,7 @@ else:
 top_display = top[["ticker", "name_ko", "value", "yoy"]].copy()
 top_display["value"] = top_display["value"].map(lambda v: f"{v:,.0f}원")
 if selected_year is not None:
-    top_display["yoy"] = top_display["yoy"].map(lambda v: f"{v*100:,.1f}%" if v is not None else "N/A")
+    top_display["yoy"] = top_display["yoy"].map(lambda v: f"{v*100:,.2f}%" if v is not None else "N/A")
 else:
     top_display = top_display.drop(columns=["yoy"])
 st.dataframe(top_display, use_container_width=True)
@@ -288,11 +305,11 @@ if display_valuations:
         return ""
 
     formatters = {
-        "Quantity": "{:,.4f}",
+        "Quantity": "{:,.0f}",
         "Avg Buy Price (KRW)": "{:,.0f}",
         "Total Cost (KRW)": "{:,.0f}",
         "Realized PnL (KRW)": "{:,.0f}",
-        "Price": "{:,.2f}",
+        "Price": "{:,.0f}",
         "Price (KRW)": "{:,.0f}",
         "Market Value (KRW)": "{:,.0f}",
         "Gain/Loss (KRW)": "{:,.0f}",
@@ -300,7 +317,7 @@ if display_valuations:
     }
     styled = (
         df.style.format(formatters, na_rep="-")
-        .applymap(_gain_style, subset=["Gain/Loss %"])
+        .applymap(_gain_style, subset=["Gain/Loss (KRW)", "Gain/Loss %"])
         .hide(axis="index")
     )
     st.dataframe(styled, use_container_width=True)
@@ -345,10 +362,29 @@ if not history_df.empty or not cash_history_df.empty:
     merged["asset_cost_with_cash"] = merged["total_cost_krw"] + merged["cash_krw"]
     merged["asset_market_with_cash"] = merged["market_value_krw"] + merged["cash_krw"]
     st.caption(f"{history_label} 계좌 기준 평가/현금 추이 (최근 {len(merged)}포인트)")
-    st.line_chart(
-        merged,
-        x="valuation_date",
-        y=["total_cost_krw", "market_value_krw", "cash_krw", "asset_market_with_cash"],
+    series_labels = {
+        "total_cost_krw": "총 원가",
+        "market_value_krw": "평가액",
+        "cash_krw": "현금",
+        "asset_market_with_cash": "평가+현금",
+    }
+    history_long = merged.melt(
+        id_vars=["valuation_date"],
+        value_vars=list(series_labels.keys()),
+        var_name="series",
+        value_name="value",
     )
+    history_long["label"] = history_long["series"].map(series_labels)
+    history_chart = alt.Chart(history_long).mark_line().encode(
+        x=alt.X("valuation_date:T", title="날짜"),
+        y=alt.Y("value:Q", title="금액", axis=alt.Axis(format=",.0f")),
+        color=alt.Color("label:N", title=""),
+        tooltip=[
+            alt.Tooltip("valuation_date:T", title="날짜"),
+            alt.Tooltip("label:N", title="항목"),
+            alt.Tooltip("value:Q", title="금액", format=",.0f"),
+        ],
+    )
+    st.altair_chart(history_chart, use_container_width=True)
 else:
     st.info(f"{history_label} 계좌에 저장된 평가 또는 현금 기록이 없습니다.")

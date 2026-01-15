@@ -126,7 +126,7 @@ else:
             )
             st.caption(f"{len(job.tickers)} tickers · {revalidate_hint}")
         with cols[2]:
-            st.progress(progress, text=f"{progress*100:,.1f}% 완료")
+            st.progress(progress, text=f"{progress*100:,.0f}% 완료")
         with cols[3]:
             st.caption(
                 f"성공 {job.success_count} · 스킵 {job.skip_count} · 실패 {job.fail_count}"
@@ -216,7 +216,7 @@ if not active_job:
 else:
     total_steps = len(active_job.tickers) * max(1, active_job.end_year - active_job.start_year + 1)
     progress = active_job.processed_count / total_steps if total_steps else 0.0
-    st.progress(progress, text=f"{progress*100:,.1f}% 진행")
+    st.progress(progress, text=f"{progress*100:,.0f}% 진행")
 
     st.write(f"상태: **{active_job.status}** · Job ID: `{active_job.job_id}`")
     policy_text = (

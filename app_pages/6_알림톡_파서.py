@@ -168,17 +168,17 @@ if rows:
             "rawText": st.column_config.TextColumn("원문", disabled=True, width="large"),
             "ticker": st.column_config.TextColumn("Ticker (필수)"),
             "currency": st.column_config.TextColumn("통화"),
-            "grossDividend": st.column_config.NumberColumn("세전 배당", format="%.4f"),
-            "netDividend": st.column_config.NumberColumn("세후 배당", format="%.4f"),
-            "tax": st.column_config.NumberColumn("원통화 세금", format="%.4f"),
+            "grossDividend": st.column_config.NumberColumn("세전 배당", format="%.0f"),
+            "netDividend": st.column_config.NumberColumn("세후 배당", format="%.0f"),
+            "tax": st.column_config.NumberColumn("원통화 세금", format="%.0f"),
             "accountType": st.column_config.SelectboxColumn(
                 "계좌 구분",
                 options=ACCOUNT_OPTIONS,
             ),
             "payDate": st.column_config.DateColumn("지급일"),
-            "fxRate": st.column_config.NumberColumn("환율", format="%.4f"),
-            "krwGross": st.column_config.NumberColumn("KRW 세전", format="%.2f"),
-            "krwNet": st.column_config.NumberColumn("KRW 세후", format="%.2f"),
+            "fxRate": st.column_config.NumberColumn("환율", format="%.0f"),
+            "krwGross": st.column_config.NumberColumn("KRW 세전", format="%.0f"),
+            "krwNet": st.column_config.NumberColumn("KRW 세후", format="%.0f"),
         },
         hide_index=True,
     )
@@ -206,9 +206,9 @@ if rows:
                     continue
                 row["fxRate"] = rate
                 if row.get("grossDividend") not in (None, ""):
-                    row["krwGross"] = round(row["grossDividend"] * rate, 2)
+                    row["krwGross"] = round(row["grossDividend"] * rate, 0)
                 if row.get("netDividend") not in (None, ""):
-                    row["krwNet"] = round(row["netDividend"] * rate, 2)
+                    row["krwNet"] = round(row["netDividend"] * rate, 0)
                 updated = True
             st.session_state["alimtalk_rows"] = updated_rows
             if updated:
@@ -228,9 +228,9 @@ if rows:
                 if rate in (None, 0):
                     continue
                 if row.get("grossDividend") not in (None, ""):
-                    row["krwGross"] = round(row["grossDividend"] * rate, 2)
+                    row["krwGross"] = round(row["grossDividend"] * rate, 0)
                 if row.get("netDividend") not in (None, ""):
-                    row["krwNet"] = round(row["netDividend"] * rate, 2)
+                    row["krwNet"] = round(row["netDividend"] * rate, 0)
             st.session_state["alimtalk_rows"] = updated_rows
             st.success("원화 금액을 재계산했습니다.")
 
@@ -257,7 +257,7 @@ if rows:
             manual_rate = c2.number_input(
                 "환율 (통화 -> KRW)",
                 min_value=0.0,
-                format="%.4f",
+                format="%.0f",
                 key="manual_fx_rate",
             )
             apply_manual = st.button("선택 통화 환율 적용", use_container_width=True)
@@ -272,9 +272,9 @@ if rows:
                             continue
                         row["fxRate"] = manual_rate
                         if row.get("grossDividend") not in (None, ""):
-                            row["krwGross"] = round(float(row["grossDividend"]) * manual_rate, 2)
+                            row["krwGross"] = round(float(row["grossDividend"]) * manual_rate, 0)
                         if row.get("netDividend") not in (None, ""):
-                            row["krwNet"] = round(float(row["netDividend"]) * manual_rate, 2)
+                            row["krwNet"] = round(float(row["netDividend"]) * manual_rate, 0)
                     st.session_state["alimtalk_rows"] = updated_rows
                     st.success(f"{selected_currency} 환율을 적용했습니다.")
                     _force_rerun()
