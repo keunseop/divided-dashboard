@@ -4,13 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="가격 조회 방식 limit 처리, 종목 검색 차트 수정">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/alimtalk_parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/alimtalk_parser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/kis/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/auth.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/var/kis_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/var/kis_token.json" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동">
+      <change beforePath="$PROJECT_DIR$/core/admin_gate.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/admin_gate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/user_gate.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/user_gate.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -358,11 +354,18 @@
       <option name="project" value="LOCAL" />
       <updated>1768242275387</updated>
     </task>
-    <option name="localTasksCounter" value="27" />
+    <task id="LOCAL-00027" summary="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동">
+      <option name="closed" value="true" />
+      <created>1768482132522</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1768482132522</updated>
+    </task>
+    <option name="localTasksCounter" value="28" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="프로젝트 초기 구성" />
     <MESSAGE value="ticker 추가 완료" />
     <MESSAGE value="원화 표시 완료, missing ticker 추가 기능 완료" />
     <MESSAGE value="workspace 파일 추가" />
@@ -387,6 +390,7 @@
     <MESSAGE value="포트폴리오 수정 기능 보완" />
     <MESSAGE value="pykis 적용 및 가격 동시 요청 처리" />
     <MESSAGE value="가격 조회 방식 limit 처리, 종목 검색 차트 수정" />
-    <option name="LAST_COMMIT_MESSAGE" value="가격 조회 방식 limit 처리, 종목 검색 차트 수정" />
+    <MESSAGE value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
+    <option name="LAST_COMMIT_MESSAGE" value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
   </component>
 </project>

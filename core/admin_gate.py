@@ -6,6 +6,7 @@ import streamlit as st
 
 _ADMIN_STATE_KEY = "admin_unlocked"
 _ADMIN_FORM_KEY = "admin_gate_form"
+_ADMIN_GATE_ENV = "ADMIN_GATE_ENABLED"
 
 
 def _trigger_rerun() -> None:
@@ -26,6 +27,16 @@ def _get_admin_password() -> str | None:
     return None
 
 
+def _is_admin_gate_enabled() -> bool:
+    secret = st.secrets.get(_ADMIN_GATE_ENV) if hasattr(st, "secrets") else None
+    if isinstance(secret, bool):
+        return secret
+    if isinstance(secret, str):
+        return secret.strip().lower() in {"1", "true", "yes", "y", "on"}
+    env_value = os.environ.get(_ADMIN_GATE_ENV, "")
+    return env_value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 def is_admin_unlocked() -> bool:
     """Check whether the current session already passed the admin gate."""
     return st.session_state.get(_ADMIN_STATE_KEY, False) is True
@@ -39,6 +50,8 @@ def lock_admin() -> None:
 
 def require_admin() -> None:
     """Stop execution unless the user provides the configured admin password."""
+    if not _is_admin_gate_enabled():
+        return
     if is_admin_unlocked():
         return
 
