@@ -4,7 +4,6 @@ from sqlalchemy import select
 
 from core.cash_service import (
     list_cash_snapshots,
-    upsert_cash_snapshot,
 )
 from core.db import db_session
 from core.models import DividendEvent, AccountType, TickerMaster
@@ -236,31 +235,7 @@ with cash_cols[0]:
     else:
         st.warning("현금 스냅샷이 없습니다. 현금을 입력해 총자산을 함께 추적하세요.")
 with cash_cols[1]:
-    st.write("현금 입력/업데이트")
-    default_cash_value = latest_cash_snapshot.cash_krw if latest_cash_snapshot else 0.0
-    with st.form("cash_snapshot_form"):
-        cash_date = st.date_input("기준일", value=pd.Timestamp.today().date())
-        cash_amount = st.number_input(
-            "현금 (KRW)",
-            min_value=0.0,
-            value=float(default_cash_value),
-            step=100000.0,
-        )
-        cash_note = st.text_input("메모", value="")
-        submitted_cash = st.form_submit_button("저장")
-    if submitted_cash:
-        try:
-            with db_session() as session:
-                upsert_cash_snapshot(
-                    session,
-                    snapshot_date=cash_date,
-                    account_type=history_account,
-                    cash_krw=cash_amount,
-                    note=cash_note or None,
-                )
-            st.success("현금 스냅샷이 저장되었습니다.")
-        except Exception as exc:
-            st.error(f"현금 저장 실패: {exc}")
+    st.info("현금 입력/입출금은 포트폴리오 관리에서 진행해 주세요.")
 
 missing_prices = [
     f"{val.ticker} ({val.account_type.value})"

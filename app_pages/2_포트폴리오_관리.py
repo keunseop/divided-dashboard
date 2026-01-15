@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy import select
 
-from core.cash_service import apply_cash_delta, get_latest_cash_snapshot
+from core.cash_service import apply_cash_delta, get_latest_cash_snapshot, upsert_cash_snapshot
 from core.db import DB_PATH
 from core.db import db_session
 from core.holdings_service import get_positions, list_trades, record_trade
@@ -68,8 +68,6 @@ def _render_csv_importers():
         except Exception as exc:
             st.error(f"Holding Lot Import 실패: {exc}")
 
-    st.divider()
-
     st.subheader("현재 보유 포지션 업로드")
     st.write(
         """
@@ -101,8 +99,6 @@ def _render_csv_importers():
         except Exception as exc:
             st.error(f"Holding Position Import 실패: {exc}")
 
-    st.divider()
-
     st.subheader("포트폴리오 스냅샷 (월별 현황)")
     st.write(
         """
@@ -133,392 +129,497 @@ def _render_csv_importers():
         except Exception as exc:
             st.error(f"Snapshot Import 실패: {exc}")
 
-    st.divider()
-
 with db_session() as session:
     has_any_positions = session.execute(select(HoldingPosition.id).limit(1)).first() is not None
     has_any_lots = session.execute(select(HoldingLot.id).limit(1)).first() is not None
 
-st.header("현재 포지션 미리보기")
-account_filter = st.selectbox(
-    "계좌 필터",
-    options=["ALL"] + [acct.value for acct in AccountType if acct != AccountType.ALL],
-    help="계좌별로 잔여 수량과 평균 단가를 확인합니다.",
-)
+with st.expander("현금 관리", expanded=True):
+    cash_cols = st.columns(2)
+    account_options = [acct.value for acct in AccountType if acct != AccountType.ALL]
+    with cash_cols[0]:
+        st.subheader("현금 스냅샷 수정")
+        cash_snapshot_account = st.selectbox(
+            "계좌 구분",
+            options=["ALL"] + account_options,
+            key="cash_snapshot_account",
+        )
+        snapshot_account_type = (
+            AccountType.ALL if cash_snapshot_account == "ALL" else AccountType(cash_snapshot_account)
+        )
+        with db_session() as session:
+            latest_cash = get_latest_cash_snapshot(
+                session,
+                account_type=snapshot_account_type,
+            )
+        default_cash_value = latest_cash.cash_krw if latest_cash else 0.0
+        with st.form("cash_snapshot_form_portfolio"):
+            cash_date = st.date_input("기준일", value=pd.Timestamp.today().date())
+            cash_amount = st.number_input(
+                "현금 (KRW)",
+                min_value=0.0,
+                value=float(default_cash_value),
+                step=100000.0,
+            )
+            cash_note = st.text_input("메모", value="")
+            submitted_cash = st.form_submit_button("저장")
+        if submitted_cash:
+            try:
+                with db_session() as session:
+                    upsert_cash_snapshot(
+                        session,
+                        snapshot_date=cash_date,
+                        account_type=snapshot_account_type,
+                        cash_krw=cash_amount,
+                        note=cash_note or None,
+                    )
+                st.success("현금 스냅샷이 저장되었습니다.")
+            except Exception as exc:
+                st.error(f"현금 저장 실패: {exc}")
 
-with db_session() as session:
-    account = None if account_filter == "ALL" else AccountType(account_filter)
-    positions = get_positions(session, account_type=account)
+    with cash_cols[1]:
+        st.subheader("현금 입금/출금")
+        default_cash_account = account_options[0]
+        with st.form("cash_delta_form_portfolio"):
+            cash_delta_date = st.date_input(
+                "입금/출금일",
+                value=pd.Timestamp.today().date(),
+                key="cash_delta_date_portfolio",
+            )
+            cash_delta_account = st.selectbox(
+                "계좌 구분",
+                options=account_options,
+                index=account_options.index(default_cash_account),
+                key="cash_delta_account_portfolio",
+            )
+            cash_delta_type = st.selectbox(
+                "구분",
+                options=["입금", "출금"],
+                key="cash_delta_type_portfolio",
+            )
+            cash_delta_amount = st.number_input(
+                "금액 (KRW)",
+                min_value=0.0,
+                step=100000.0,
+                key="cash_delta_amount_portfolio",
+            )
+            cash_delta_note = st.text_input("메모", value="", key="cash_delta_note_portfolio")
+            submitted_delta = st.form_submit_button("반영")
+        if submitted_delta:
+            try:
+                if cash_delta_amount <= 0:
+                    raise ValueError("금액은 0보다 커야 합니다.")
+                delta_sign = 1.0 if cash_delta_type == "입금" else -1.0
+                delta_krw = delta_sign * float(cash_delta_amount)
+                target_date = cash_delta_date
+                with db_session() as session:
+                    latest_account_cash = get_latest_cash_snapshot(
+                        session,
+                        account_type=AccountType(cash_delta_account),
+                    )
+                    latest_all_cash = get_latest_cash_snapshot(
+                        session,
+                        account_type=AccountType.ALL,
+                    )
+                    for latest_cash in (latest_account_cash, latest_all_cash):
+                        if latest_cash and latest_cash.snapshot_date > target_date:
+                            target_date = latest_cash.snapshot_date
+                    apply_cash_delta(
+                        session,
+                        account_type=AccountType(cash_delta_account),
+                        snapshot_date=target_date,
+                        delta_krw=delta_krw,
+                        note=cash_delta_note or None,
+                    )
+                    apply_cash_delta(
+                        session,
+                        account_type=AccountType.ALL,
+                        snapshot_date=target_date,
+                        delta_krw=delta_krw,
+                        note=cash_delta_note or None,
+                    )
+                st.success("현금 입금/출금이 반영되었습니다.")
+            except Exception as exc:
+                st.error(f"현금 입금/출금 실패: {exc}")
 
-if not positions:
-    st.info("등록된 포지션이 없습니다. CSV 업로드 또는 매수 입력으로 추가해 주세요.")
-else:
-    df = pd.DataFrame(
-        [
-            {
-                "Symbol": f"{pos.ticker} ({pos.name_ko})" if pos.name_ko else pos.ticker,
-                "Account": pos.account_type.value,
-                "Quantity": pos.quantity,
-                "Avg Buy Price (KRW)": pos.avg_buy_price_krw,
-                "Cost Basis (KRW)": pos.total_cost_krw,
-                "Realized PnL (KRW)": pos.realized_pnl_krw,
-            }
-            for pos in positions
-        ]
-    )
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Symbol": st.column_config.TextColumn("종목"),
-            "Account": st.column_config.TextColumn("계좌"),
-            "Quantity": st.column_config.NumberColumn("수량", format="%.4f"),
-            "Avg Buy Price (KRW)": st.column_config.NumberColumn("평균 매입가 (KRW)", format="%.2f"),
-            "Cost Basis (KRW)": st.column_config.NumberColumn("Cost Basis (KRW)", format="%.0f"),
-            "Realized PnL (KRW)": st.column_config.NumberColumn("실현손익 (KRW)", format="%.0f"),
-        },
-    )
-
-st.divider()
-st.header("거래 내역 미리보기")
-trade_filter_col1, trade_filter_col2, trade_filter_col3 = st.columns([2, 1.5, 1])
-with trade_filter_col1:
-    trade_filter_ticker = st.text_input("티커 필터", value="")
-with trade_filter_col2:
-    trade_filter_account = st.selectbox(
+with st.expander("현재 포지션", expanded=True):
+    st.subheader("현재 포지션 미리보기")
+    account_filter = st.selectbox(
         "계좌 필터",
         options=["ALL"] + [acct.value for acct in AccountType if acct != AccountType.ALL],
-        key="trade_account_filter",
-    )
-with trade_filter_col3:
-    trade_limit = st.number_input("표시 건수", min_value=50, max_value=1000, value=200, step=50)
-
-with db_session() as session:
-    account_arg = None if trade_filter_account == "ALL" else AccountType(trade_filter_account)
-    trades = list_trades(
-        session,
-        account_type=account_arg,
-        ticker=trade_filter_ticker or None,
-        limit=int(trade_limit),
+        help="계좌별로 잔여 수량과 평균 단가를 확인합니다.",
     )
 
-if not trades:
-    st.info("표시할 거래가 없습니다.")
-else:
-    trade_df = pd.DataFrame(
-        [
-            {
-                "Date": lot.trade_date,
-                "Ticker": lot.ticker,
-                "Account": lot.account_type.value,
-                "Side": lot.side.value,
-                "Quantity": lot.quantity,
-                "Price": lot.price,
-                "Currency": lot.currency,
-                "FX": lot.fx_rate,
-                "Price (KRW)": lot.price_krw,
-                "Amount (KRW)": lot.amount_krw,
-                "Note": lot.note or "",
-                "Source": lot.source,
-            }
-            for lot in trades
-        ]
+    with db_session() as session:
+        account = None if account_filter == "ALL" else AccountType(account_filter)
+        positions = get_positions(session, account_type=account)
+
+    if not positions:
+        st.info("등록된 포지션이 없습니다. CSV 업로드 또는 매수 입력으로 추가해 주세요.")
+    else:
+        df = pd.DataFrame(
+            [
+                {
+                    "Symbol": f"{pos.ticker} ({pos.name_ko})" if pos.name_ko else pos.ticker,
+                    "Account": pos.account_type.value,
+                    "Quantity": pos.quantity,
+                    "Avg Buy Price (KRW)": pos.avg_buy_price_krw,
+                    "Cost Basis (KRW)": pos.total_cost_krw,
+                    "Realized PnL (KRW)": pos.realized_pnl_krw,
+                }
+                for pos in positions
+            ]
+        )
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Symbol": st.column_config.TextColumn("종목"),
+                "Account": st.column_config.TextColumn("계좌"),
+                "Quantity": st.column_config.NumberColumn("수량", format="%.4f"),
+                "Avg Buy Price (KRW)": st.column_config.NumberColumn("평균 매입가 (KRW)", format="%.2f"),
+                "Cost Basis (KRW)": st.column_config.NumberColumn("Cost Basis (KRW)", format="%.0f"),
+                "Realized PnL (KRW)": st.column_config.NumberColumn("실현손익 (KRW)", format="%.0f"),
+            },
+        )
+
+with st.expander("거래 내역", expanded=False):
+    st.subheader("거래 내역 미리보기")
+    trade_filter_col1, trade_filter_col2, trade_filter_col3 = st.columns([2, 1.5, 1])
+    with trade_filter_col1:
+        trade_filter_ticker = st.text_input("티커 필터", value="")
+    with trade_filter_col2:
+        trade_filter_account = st.selectbox(
+            "계좌 필터",
+            options=["ALL"] + [acct.value for acct in AccountType if acct != AccountType.ALL],
+            key="trade_account_filter",
+        )
+    with trade_filter_col3:
+        trade_limit = st.number_input("표시 건수", min_value=50, max_value=1000, value=200, step=50)
+
+    with db_session() as session:
+        account_arg = None if trade_filter_account == "ALL" else AccountType(trade_filter_account)
+        trades = list_trades(
+            session,
+            account_type=account_arg,
+            ticker=trade_filter_ticker or None,
+            limit=int(trade_limit),
+        )
+
+    if not trades:
+        st.info("표시할 거래가 없습니다.")
+    else:
+        trade_df = pd.DataFrame(
+            [
+                {
+                    "Date": lot.trade_date,
+                    "Ticker": lot.ticker,
+                    "Account": lot.account_type.value,
+                    "Side": lot.side.value,
+                    "Quantity": lot.quantity,
+                    "Price": lot.price,
+                    "Currency": lot.currency,
+                    "FX": lot.fx_rate,
+                    "Price (KRW)": lot.price_krw,
+                    "Amount (KRW)": lot.amount_krw,
+                    "Note": lot.note or "",
+                    "Source": lot.source,
+                }
+                for lot in trades
+            ]
+        )
+        st.dataframe(
+            trade_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Quantity": st.column_config.NumberColumn("수량", format="%.4f"),
+                "Price": st.column_config.NumberColumn("단가", format="%.2f"),
+                "Price (KRW)": st.column_config.NumberColumn("단가 (KRW)", format="%.0f"),
+                "Amount (KRW)": st.column_config.NumberColumn("금액 (KRW)", format="%.0f"),
+            },
+        )
+
+with st.expander("수동 거래 입력", expanded=False):
+    st.subheader("수동 거래 입력 (BUY/SELL)")
+    st.write("급한 거래는 아래 폼에서 직접 입력해 주세요. 외화 거래는 환율을 함께 입력하면 KRW 환산 금액이 자동 계산됩니다.")
+
+    manual_ticker = st.text_input("티커 입력", placeholder="예: 005930", key="manual_trade_input")
+    manual_candidate = render_ticker_autocomplete(
+        query=manual_ticker,
+        label="티커 자동완성",
+        key="manual_trade_autocomplete",
+        help_text="Ticker Master에 등록된 종목을 선택하세요.",
+        limit=30,
+        show_input=False,
     )
-    st.dataframe(
-        trade_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Quantity": st.column_config.NumberColumn("수량", format="%.4f"),
-            "Price": st.column_config.NumberColumn("단가", format="%.2f"),
-            "Price (KRW)": st.column_config.NumberColumn("단가 (KRW)", format="%.0f"),
-            "Amount (KRW)": st.column_config.NumberColumn("금액 (KRW)", format="%.0f"),
-        },
+
+    trade_account = st.selectbox(
+        "계좌",
+        options=[acct.value for acct in AccountType if acct != AccountType.ALL],
+        key="manual_trade_account",
     )
-
-st.divider()
-st.header("수동 거래 입력 (BUY/SELL)")
-st.write("급한 거래는 아래 폼에서 직접 입력해 주세요. 외화 거래는 환율을 함께 입력하면 KRW 환산 금액이 자동 계산됩니다.")
-
-manual_ticker = st.text_input("티커 입력", placeholder="예: 005930", key="manual_trade_input")
-manual_candidate = render_ticker_autocomplete(
-    query=manual_ticker,
-    label="티커 자동완성",
-    key="manual_trade_autocomplete",
-    help_text="Ticker Master에 등록된 종목을 선택하세요.",
-    limit=30,
-    show_input=False,
-)
-
-trade_account = st.selectbox(
-    "계좌",
-    options=[acct.value for acct in AccountType if acct != AccountType.ALL],
-    key="manual_trade_account",
-)
-trade_side = st.selectbox(
-    "매매 구분",
-    options=[TradeSide.BUY.value, TradeSide.SELL.value],
-    format_func=lambda v: "매수" if v == TradeSide.BUY.value else "매도",
-    key="manual_trade_side",
-)
-trade_date = st.date_input("거래일", key="manual_trade_date")
-trade_quantity = st.number_input("수량", min_value=0.0, step=1.0, key="manual_trade_quantity")
-trade_currency = st.selectbox("통화", options=["KRW", "USD"], index=0, key="manual_trade_currency")
-trade_price = st.number_input("단가 (통화 기준)", min_value=0.0, step=10.0, key="manual_trade_price")
-fx_key = "manual_trade_fx_value"
-auto_fx_error = None
-auto_fx_info = None
-current_fx = st.session_state.get(fx_key, 1.0)
-if trade_currency == "KRW":
-    if current_fx != 1.0:
-        st.session_state[fx_key] = 1.0
-else:
-    try:
-        fetched = fetch_fx_rate_frankfurter(trade_currency, "KRW", trade_date)
-        if fetched:
-            rate = round(float(fetched), 4)
-            st.session_state[fx_key] = rate
-            auto_fx_info = f"{trade_currency} 환율 자동 입력: {rate:.4f}"
-        else:
-            st.session_state[fx_key] = 0.0
-            auto_fx_error = f"{trade_currency} 환율을 가져오지 못했습니다. 값을 직접 입력해 주세요."
-    except Exception as exc:
-        st.session_state[fx_key] = 0.0
-        auto_fx_error = f"{trade_currency} 환율 자동 조회 실패: {exc}"
-
-trade_fx = st.number_input(
-    "환율 (KRW/통화)",
-    min_value=0.0,
-    step=0.01,
-    key=fx_key,
-    help="통화가 KRW면 자동으로 1.0이 설정됩니다.",
-)
-if auto_fx_info:
-    st.info(auto_fx_info)
-if auto_fx_error:
-    st.warning(auto_fx_error)
-trade_note = st.text_input("메모", value="", key="manual_trade_note")
-submitted_trade = st.button("거래 저장", key="manual_trade_submit")
-
-if submitted_trade:
-    try:
-        if manual_candidate:
-            trade_ticker = manual_candidate.ticker
-        else:
-            trade_ticker = normalize_ticker(manual_ticker)
-        if not trade_ticker:
-            raise ValueError("자동완성에서 종목을 선택하거나 직접 입력해 주세요.")
-        if trade_quantity <= 0 or trade_price <= 0:
-            raise ValueError("수량과 단가는 0보다 커야 합니다.")
-        trade_currency_norm = trade_currency or "KRW"
-        trade_fx_value = trade_fx or 0.0
-        if trade_currency_norm != "KRW":
-            if trade_fx_value <= 0:
-                raise ValueError("외화 거래는 환율(양수)을 입력해 주세요.")
-        else:
-            trade_fx_value = 1.0
-        side_enum = TradeSide(trade_side)
-        with db_session() as session:
-            if side_enum == TradeSide.SELL:
-                positions = get_positions(session, account_type=AccountType(trade_account), tickers=[trade_ticker])
-                qty_available = positions[0].quantity if positions else 0.0
-                if qty_available < trade_quantity - 1e-8:
-                    raise ValueError(f"보유 수량({qty_available:,.4f})보다 많은 매도를 입력했습니다.")
-            lot = record_trade(
-                session,
-                trade_date=trade_date,
-                ticker=trade_ticker,
-                account_type=AccountType(trade_account),
-                side=side_enum,
-                quantity=trade_quantity,
-                price=trade_price,
-                currency=trade_currency_norm,
-                fx_rate=trade_fx_value if trade_currency_norm != "KRW" else 1.0,
-                note=trade_note or None,
-                source="manual",
-            )
-            cash_delta = lot.amount_krw if side_enum == TradeSide.SELL else -lot.amount_krw
-            target_date = trade_date
-            latest_account_cash = get_latest_cash_snapshot(
-                session,
-                account_type=AccountType(trade_account),
-            )
-            latest_all_cash = get_latest_cash_snapshot(
-                session,
-                account_type=AccountType.ALL,
-            )
-            for latest_cash in (latest_account_cash, latest_all_cash):
-                if latest_cash and latest_cash.snapshot_date > target_date:
-                    target_date = latest_cash.snapshot_date
-            apply_cash_delta(
-                session,
-                account_type=AccountType(trade_account),
-                snapshot_date=target_date,
-                delta_krw=cash_delta,
-                note=f"manual trade {side_enum.value} {trade_ticker}",
-            )
-            apply_cash_delta(
-                session,
-                account_type=AccountType.ALL,
-                snapshot_date=target_date,
-                delta_krw=cash_delta,
-                note=f"manual trade {side_enum.value} {trade_ticker}",
-            )
-        st.success("거래가 저장되었습니다.")
-    except Exception as exc:
-        st.error(f"거래 저장 실패: {exc}")
-
-st.divider()
-st.header("보유 포지션 기본값 수정")
-st.write(
-    "초기 CSV 업로드 때 입력한 수량/평균 매입가가 잘못되었다면 여기에서 바로 수정할 수 있습니다. "
-    "이 값은 이후 추가 매수/매도 거래 전에 가지고 있던 기준 수량으로 사용되며, 아래 수동 거래 내역은 그대로 유지됩니다."
-)
-st.caption("현재 화면에는 거래 내역을 반영한 최신 수량/평균 매입가가 표시됩니다.")
-
-with db_session() as session:
-    base_positions = session.execute(
-        select(HoldingPosition)
-        .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
-    ).scalars().all()
-    base_map = {(pos.account_type, pos.ticker): pos for pos in base_positions}
-    current_positions = get_positions(session)
-
-if not current_positions:
-    st.info("수정할 기본 포지션이 없습니다. 먼저 CSV를 업로드하거나 거래를 입력해 포지션을 만들어 주세요.")
-else:
-    position_options = [
-        {
-            "key": f"{pos.account_type.value}:{pos.ticker}",
-            "label": f"[{pos.account_type.value}] {pos.ticker}"
-            + (f" ({pos.name_ko})" if pos.name_ko else ""),
-            "account": pos.account_type,
-            "ticker": pos.ticker,
-            "quantity": float(pos.quantity),
-            "avg": float(pos.avg_buy_price_krw),
-            "note": base_map.get((pos.account_type, pos.ticker), None).note
-            if base_map.get((pos.account_type, pos.ticker), None)
-            else "",
-        }
-        for pos in current_positions
-    ]
-    selected_idx = st.selectbox(
-        "수정할 기본 포지션 선택",
-        options=list(range(len(position_options))),
-        format_func=lambda idx: position_options[idx]["label"],
+    trade_side = st.selectbox(
+        "매매 구분",
+        options=[TradeSide.BUY.value, TradeSide.SELL.value],
+        format_func=lambda v: "매수" if v == TradeSide.BUY.value else "매도",
+        key="manual_trade_side",
     )
-    selected = position_options[selected_idx]
-    if st.session_state.get("_position_edit_choice") != selected["key"]:
-        st.session_state["_position_edit_choice"] = selected["key"]
-        st.session_state["position_edit_qty"] = selected["quantity"]
-        st.session_state["position_edit_avg"] = selected["avg"]
-        st.session_state["position_edit_note"] = selected["note"]
-
-    edit_qty = st.number_input(
-        "기본 수량",
-        min_value=0.0,
-        step=1.0,
-        format="%.4f",
-        key="position_edit_qty",
-    )
-    edit_avg = st.number_input(
-        "기본 평균 매입가 (KRW)",
-        min_value=0.0,
-        step=10.0,
-        format="%.4f",
-        key="position_edit_avg",
-    )
-    edit_note = st.text_input("비고(선택)", key="position_edit_note")
-    st.caption("수정된 수량과 평균 단가는 해당 계좌/티커의 초기 기준치로 저장됩니다.")
-
-    if st.button("기본 포지션 업데이트", use_container_width=True):
+    trade_date = st.date_input("거래일", key="manual_trade_date")
+    trade_quantity = st.number_input("수량", min_value=0.0, step=1.0, key="manual_trade_quantity")
+    trade_currency = st.selectbox("통화", options=["KRW", "USD"], index=0, key="manual_trade_currency")
+    trade_price = st.number_input("단가 (통화 기준)", min_value=0.0, step=10.0, key="manual_trade_price")
+    fx_key = "manual_trade_fx_value"
+    auto_fx_error = None
+    auto_fx_info = None
+    current_fx = st.session_state.get(fx_key, 1.0)
+    if trade_currency == "KRW":
+        if current_fx != 1.0:
+            st.session_state[fx_key] = 1.0
+    else:
         try:
-            with db_session() as session:
-                base_qty = float(edit_qty)
-                base_avg = float(edit_avg)
-                lots = (
-                    session.execute(
-                        select(HoldingLot)
-                        .where(
-                            HoldingLot.ticker == selected["ticker"],
-                            HoldingLot.account_type == selected["account"],
-                        )
-                        .order_by(HoldingLot.trade_date, HoldingLot.id)
-                    )
-                    .scalars()
-                    .all()
-                )
-                if lots:
-                    net_qty = 0.0
-                    for lot in lots:
-                        net_qty += lot.quantity if lot.side == TradeSide.BUY else -lot.quantity
-                    base_qty = base_qty - net_qty
-                    if base_qty < -1e-8:
-                        raise ValueError("현재 수량이 거래 내역보다 적어 기본값을 계산할 수 없습니다.")
-                    base_qty = max(base_qty, 0.0)
-
-                    desired_cost = float(edit_qty) * float(edit_avg)
-                    q = base_qty
-                    a = 1.0
-                    b = 0.0
-                    for lot in lots:
-                        amount_krw = lot.amount_krw
-                        if amount_krw is None:
-                            amount_krw = (lot.price_krw or 0.0) * lot.quantity
-                        if lot.side == TradeSide.BUY:
-                            q += lot.quantity
-                            b += amount_krw
-                        else:
-                            if q <= 0:
-                                raise ValueError("매도 거래가 기본 수량을 초과합니다.")
-                            if lot.quantity - q > 1e-8:
-                                raise ValueError("매도 수량이 보유 수량을 초과합니다.")
-                            factor = (q - lot.quantity) / q
-                            q -= lot.quantity
-                            a *= factor
-                            b *= factor
-                    if a <= 1e-12:
-                        if abs(desired_cost - b) > 1e-4:
-                            raise ValueError("기본 평균 매입가를 계산할 수 없습니다.")
-                        base_cost = 0.0
-                    else:
-                        base_cost = (desired_cost - b) / a
-                    if base_cost < -1e-6:
-                        raise ValueError("기본 평균 매입가 계산 결과가 음수입니다.")
-                    base_cost = max(base_cost, 0.0)
-                    base_avg = base_cost / base_qty if base_qty > 0 else 0.0
-                else:
-                    base_cost = base_qty * base_avg
-
-                position = session.execute(
-                    select(HoldingPosition).where(
-                        HoldingPosition.ticker == selected["ticker"],
-                        HoldingPosition.account_type == selected["account"],
-                    )
-                ).scalar_one_or_none()
-                if not position:
-                    position = HoldingPosition(
-                        ticker=selected["ticker"],
-                        account_type=selected["account"],
-                    )
-                    session.add(position)
-                position.quantity = base_qty
-                position.avg_buy_price_krw = base_avg
-                position.total_cost_krw = base_cost
-                position.note = edit_note or None
-            st.success("기본 포지션을 업데이트했습니다. 아래 미리보기에서 확인해 주세요.")
+            fetched = fetch_fx_rate_frankfurter(trade_currency, "KRW", trade_date)
+            if fetched:
+                rate = round(float(fetched), 4)
+                st.session_state[fx_key] = rate
+                auto_fx_info = f"{trade_currency} 환율 자동 입력: {rate:.4f}"
+            else:
+                st.session_state[fx_key] = 0.0
+                auto_fx_error = f"{trade_currency} 환율을 가져오지 못했습니다. 값을 직접 입력해 주세요."
         except Exception as exc:
-            st.error(f"포지션 업데이트 실패: {exc}")
+            st.session_state[fx_key] = 0.0
+            auto_fx_error = f"{trade_currency} 환율 자동 조회 실패: {exc}"
 
-st.divider()
-if not (has_any_positions or has_any_lots):
-    st.info("보유 데이터가 없어 CSV 기반 초기 업로드가 필요합니다.")
-    _render_csv_importers()
-else:
-    with st.expander("CSV 업로드 (초기 세팅/재업로드 시 펼치세요)", expanded=False):
+    trade_fx = st.number_input(
+        "환율 (KRW/통화)",
+        min_value=0.0,
+        step=0.01,
+        key=fx_key,
+        help="통화가 KRW면 자동으로 1.0이 설정됩니다.",
+    )
+    if auto_fx_info:
+        st.info(auto_fx_info)
+    if auto_fx_error:
+        st.warning(auto_fx_error)
+    trade_note = st.text_input("메모", value="", key="manual_trade_note")
+    submitted_trade = st.button("거래 저장", key="manual_trade_submit")
+
+    if submitted_trade:
+        try:
+            if manual_candidate:
+                trade_ticker = manual_candidate.ticker
+            else:
+                trade_ticker = normalize_ticker(manual_ticker)
+            if not trade_ticker:
+                raise ValueError("자동완성에서 종목을 선택하거나 직접 입력해 주세요.")
+            if trade_quantity <= 0 or trade_price <= 0:
+                raise ValueError("수량과 단가는 0보다 커야 합니다.")
+            trade_currency_norm = trade_currency or "KRW"
+            trade_fx_value = trade_fx or 0.0
+            if trade_currency_norm != "KRW":
+                if trade_fx_value <= 0:
+                    raise ValueError("외화 거래는 환율(양수)을 입력해 주세요.")
+            else:
+                trade_fx_value = 1.0
+            side_enum = TradeSide(trade_side)
+            with db_session() as session:
+                if side_enum == TradeSide.SELL:
+                    positions = get_positions(session, account_type=AccountType(trade_account), tickers=[trade_ticker])
+                    qty_available = positions[0].quantity if positions else 0.0
+                    if qty_available < trade_quantity - 1e-8:
+                        raise ValueError(f"보유 수량({qty_available:,.4f})보다 많은 매도를 입력했습니다.")
+                lot = record_trade(
+                    session,
+                    trade_date=trade_date,
+                    ticker=trade_ticker,
+                    account_type=AccountType(trade_account),
+                    side=side_enum,
+                    quantity=trade_quantity,
+                    price=trade_price,
+                    currency=trade_currency_norm,
+                    fx_rate=trade_fx_value if trade_currency_norm != "KRW" else 1.0,
+                    note=trade_note or None,
+                    source="manual",
+                )
+                cash_delta = lot.amount_krw if side_enum == TradeSide.SELL else -lot.amount_krw
+                target_date = trade_date
+                latest_account_cash = get_latest_cash_snapshot(
+                    session,
+                    account_type=AccountType(trade_account),
+                )
+                latest_all_cash = get_latest_cash_snapshot(
+                    session,
+                    account_type=AccountType.ALL,
+                )
+                for latest_cash in (latest_account_cash, latest_all_cash):
+                    if latest_cash and latest_cash.snapshot_date > target_date:
+                        target_date = latest_cash.snapshot_date
+                apply_cash_delta(
+                    session,
+                    account_type=AccountType(trade_account),
+                    snapshot_date=target_date,
+                    delta_krw=cash_delta,
+                    note=f"manual trade {side_enum.value} {trade_ticker}",
+                )
+                apply_cash_delta(
+                    session,
+                    account_type=AccountType.ALL,
+                    snapshot_date=target_date,
+                    delta_krw=cash_delta,
+                    note=f"manual trade {side_enum.value} {trade_ticker}",
+                )
+            st.success("거래가 저장되었습니다.")
+        except Exception as exc:
+            st.error(f"거래 저장 실패: {exc}")
+
+with st.expander("기본 포지션 수정", expanded=False):
+    st.subheader("보유 포지션 기본값 수정")
+    st.write(
+        "초기 CSV 업로드 때 입력한 수량/평균 매입가가 잘못되었다면 여기에서 바로 수정할 수 있습니다. "
+        "이 값은 이후 추가 매수/매도 거래 전에 가지고 있던 기준 수량으로 사용되며, 아래 수동 거래 내역은 그대로 유지됩니다."
+    )
+    st.caption("현재 화면에는 거래 내역을 반영한 최신 수량/평균 매입가가 표시됩니다.")
+
+    with db_session() as session:
+        base_positions = session.execute(
+            select(HoldingPosition)
+            .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
+        ).scalars().all()
+        base_map = {(pos.account_type, pos.ticker): pos for pos in base_positions}
+        current_positions = get_positions(session)
+
+    if not current_positions:
+        st.info("수정할 기본 포지션이 없습니다. 먼저 CSV를 업로드하거나 거래를 입력해 포지션을 만들어 주세요.")
+    else:
+        position_options = [
+            {
+                "key": f"{pos.account_type.value}:{pos.ticker}",
+                "label": f"[{pos.account_type.value}] {pos.ticker}"
+                + (f" ({pos.name_ko})" if pos.name_ko else ""),
+                "account": pos.account_type,
+                "ticker": pos.ticker,
+                "quantity": float(pos.quantity),
+                "avg": float(pos.avg_buy_price_krw),
+                "note": base_map.get((pos.account_type, pos.ticker), None).note
+                if base_map.get((pos.account_type, pos.ticker), None)
+                else "",
+            }
+            for pos in current_positions
+        ]
+        selected_idx = st.selectbox(
+            "수정할 기본 포지션 선택",
+            options=list(range(len(position_options))),
+            format_func=lambda idx: position_options[idx]["label"],
+        )
+        selected = position_options[selected_idx]
+        if st.session_state.get("_position_edit_choice") != selected["key"]:
+            st.session_state["_position_edit_choice"] = selected["key"]
+            st.session_state["position_edit_qty"] = selected["quantity"]
+            st.session_state["position_edit_avg"] = selected["avg"]
+            st.session_state["position_edit_note"] = selected["note"]
+
+        edit_qty = st.number_input(
+            "기본 수량",
+            min_value=0.0,
+            step=1.0,
+            format="%.4f",
+            key="position_edit_qty",
+        )
+        edit_avg = st.number_input(
+            "기본 평균 매입가 (KRW)",
+            min_value=0.0,
+            step=10.0,
+            format="%.4f",
+            key="position_edit_avg",
+        )
+        edit_note = st.text_input("비고(선택)", key="position_edit_note")
+        st.caption("수정된 수량과 평균 단가는 해당 계좌/티커의 초기 기준치로 저장됩니다.")
+
+        if st.button("기본 포지션 업데이트", use_container_width=True):
+            try:
+                with db_session() as session:
+                    base_qty = float(edit_qty)
+                    base_avg = float(edit_avg)
+                    lots = (
+                        session.execute(
+                            select(HoldingLot)
+                            .where(
+                                HoldingLot.ticker == selected["ticker"],
+                                HoldingLot.account_type == selected["account"],
+                            )
+                            .order_by(HoldingLot.trade_date, HoldingLot.id)
+                        )
+                        .scalars()
+                        .all()
+                    )
+                    if lots:
+                        net_qty = 0.0
+                        for lot in lots:
+                            net_qty += lot.quantity if lot.side == TradeSide.BUY else -lot.quantity
+                        base_qty = base_qty - net_qty
+                        if base_qty < -1e-8:
+                            raise ValueError("현재 수량이 거래 내역보다 적어 기본값을 계산할 수 없습니다.")
+                        base_qty = max(base_qty, 0.0)
+
+                        desired_cost = float(edit_qty) * float(edit_avg)
+                        q = base_qty
+                        a = 1.0
+                        b = 0.0
+                        for lot in lots:
+                            amount_krw = lot.amount_krw
+                            if amount_krw is None:
+                                amount_krw = (lot.price_krw or 0.0) * lot.quantity
+                            if lot.side == TradeSide.BUY:
+                                q += lot.quantity
+                                b += amount_krw
+                            else:
+                                if q <= 0:
+                                    raise ValueError("매도 거래가 기본 수량을 초과합니다.")
+                                if lot.quantity - q > 1e-8:
+                                    raise ValueError("매도 수량이 보유 수량을 초과합니다.")
+                                factor = (q - lot.quantity) / q
+                                q -= lot.quantity
+                                a *= factor
+                                b *= factor
+                        if a <= 1e-12:
+                            if abs(desired_cost - b) > 1e-4:
+                                raise ValueError("기본 평균 매입가를 계산할 수 없습니다.")
+                            base_cost = 0.0
+                        else:
+                            base_cost = (desired_cost - b) / a
+                        if base_cost < -1e-6:
+                            raise ValueError("기본 평균 매입가 계산 결과가 음수입니다.")
+                        base_cost = max(base_cost, 0.0)
+                        base_avg = base_cost / base_qty if base_qty > 0 else 0.0
+                    else:
+                        base_cost = base_qty * base_avg
+
+                    position = session.execute(
+                        select(HoldingPosition).where(
+                            HoldingPosition.ticker == selected["ticker"],
+                            HoldingPosition.account_type == selected["account"],
+                        )
+                    ).scalar_one_or_none()
+                    if not position:
+                        position = HoldingPosition(
+                            ticker=selected["ticker"],
+                            account_type=selected["account"],
+                        )
+                        session.add(position)
+                    position.quantity = base_qty
+                    position.avg_buy_price_krw = base_avg
+                    position.total_cost_krw = base_cost
+                    position.note = edit_note or None
+                st.success("기본 포지션을 업데이트했습니다. 아래 미리보기에서 확인해 주세요.")
+            except Exception as exc:
+                st.error(f"포지션 업데이트 실패: {exc}")
+
+with st.expander("CSV 업로드", expanded=not (has_any_positions or has_any_lots)):
+    if not (has_any_positions or has_any_lots):
+        st.info("보유 데이터가 없어 CSV 기반 초기 업로드가 필요합니다.")
+    else:
         st.caption("이미 거래/포지션이 있다면 중복 입력에 주의해 주세요.")
-        _render_csv_importers()
+    _render_csv_importers()
 
 st.divider()
 st.header("서버 DB 내보내기")

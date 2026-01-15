@@ -9,6 +9,7 @@ from typing import Sequence
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from core.cash_service import apply_cash_delta, get_latest_cash_snapshot
 from core.models import AccountType, DividendEvent, DividendSource
 from core.utils import normalize_ticker
 
@@ -186,20 +187,35 @@ def build_row_id(raw_text: str, pay_date: date, ticker: str) -> str:
     return f"alimtalk:{digest}"
 
 
+def _cash_amount_krw(krw_net: float | None, krw_gross: float) -> float:
+    return float(krw_net) if krw_net is not None else float(krw_gross)
+
+
+def _resolve_cash_target_date(session: Session, account_type: AccountType, base_date: date) -> date:
+    target_date = base_date
+    latest_account_cash = get_latest_cash_snapshot(session, account_type=account_type)
+    latest_all_cash = get_latest_cash_snapshot(session, account_type=AccountType.ALL)
+    for latest_cash in (latest_account_cash, latest_all_cash):
+        if latest_cash and latest_cash.snapshot_date > target_date:
+            target_date = latest_cash.snapshot_date
+    return target_date
+
+
 def upsert_alimtalk_events(session: Session, rows: Sequence[AlimtalkImportPayload]) -> AlimtalkUpsertResult:
     if not rows:
         return AlimtalkUpsertResult(inserted=0, updated=0)
 
     existing = session.execute(
-        select(DividendEvent.row_id, DividendEvent.id)
+        select(DividendEvent)
         .where(DividendEvent.row_id.in_([row.row_id for row in rows]))
-    ).all()
-    existing_map = {row_id: db_id for row_id, db_id in existing}
+    ).scalars().all()
+    existing_map = {row.row_id: row for row in existing}
 
     inserted = 0
     updated = 0
 
     for row in rows:
+        cash_amount = _cash_amount_krw(row.krw_net, row.krw_gross)
         payload = dict(
             row_id=row.row_id,
             pay_date=row.pay_date,
@@ -219,15 +235,82 @@ def upsert_alimtalk_events(session: Session, rows: Sequence[AlimtalkImportPayloa
             raw_text=row.raw_text,
         )
 
-        if row.row_id in existing_map:
+        existing_row = existing_map.get(row.row_id)
+        if existing_row:
             session.execute(
                 update(DividendEvent)
                 .where(DividendEvent.row_id == row.row_id)
                 .values(**payload)
             )
             updated += 1
+            previous_amount = _cash_amount_krw(existing_row.krw_net, existing_row.krw_gross)
+            if (
+                abs(previous_amount - cash_amount) > 1e-6
+                or existing_row.pay_date != row.pay_date
+                or existing_row.account_type != row.account_type
+            ):
+                if previous_amount > 0:
+                    previous_target = _resolve_cash_target_date(
+                        session,
+                        account_type=existing_row.account_type,
+                        base_date=existing_row.pay_date,
+                    )
+                    apply_cash_delta(
+                        session,
+                        account_type=existing_row.account_type,
+                        snapshot_date=previous_target,
+                        delta_krw=-previous_amount,
+                        note=f"alimtalk dividend adjust {existing_row.ticker}",
+                    )
+                    apply_cash_delta(
+                        session,
+                        account_type=AccountType.ALL,
+                        snapshot_date=previous_target,
+                        delta_krw=-previous_amount,
+                        note=f"alimtalk dividend adjust {existing_row.ticker}",
+                    )
+                if cash_amount > 0:
+                    target_date = _resolve_cash_target_date(
+                        session,
+                        account_type=row.account_type,
+                        base_date=row.pay_date,
+                    )
+                    apply_cash_delta(
+                        session,
+                        account_type=row.account_type,
+                        snapshot_date=target_date,
+                        delta_krw=cash_amount,
+                        note=f"alimtalk dividend {row.ticker}",
+                    )
+                    apply_cash_delta(
+                        session,
+                        account_type=AccountType.ALL,
+                        snapshot_date=target_date,
+                        delta_krw=cash_amount,
+                        note=f"alimtalk dividend {row.ticker}",
+                    )
         else:
             session.add(DividendEvent(**payload))
             inserted += 1
+            if cash_amount > 0:
+                target_date = _resolve_cash_target_date(
+                    session,
+                    account_type=row.account_type,
+                    base_date=row.pay_date,
+                )
+                apply_cash_delta(
+                    session,
+                    account_type=row.account_type,
+                    snapshot_date=target_date,
+                    delta_krw=cash_amount,
+                    note=f"alimtalk dividend {row.ticker}",
+                )
+                apply_cash_delta(
+                    session,
+                    account_type=AccountType.ALL,
+                    snapshot_date=target_date,
+                    delta_krw=cash_amount,
+                    note=f"alimtalk dividend {row.ticker}",
+                )
 
     return AlimtalkUpsertResult(inserted=inserted, updated=updated)

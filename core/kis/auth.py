@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+import threading
 from typing import Any
 
 import requests
@@ -10,6 +11,7 @@ import requests
 from core.kis.settings import load_kis_config
 
 TOKEN_FILE = Path(__file__).resolve().parents[2] / "var" / "kis_token.json"
+_TOKEN_LOCK = threading.Lock()
 
 
 def _load_cached_token(env: str) -> dict[str, Any] | None:
@@ -46,15 +48,20 @@ def get_access_token(*, env: str | None = None, force_refresh: bool = False) -> 
     if cached and not force_refresh and _is_token_valid(cached):
         return str(cached["access_token"])
 
-    url = f"{config.base_url}/oauth2/tokenP"
-    payload = {
-        "grant_type": "client_credentials",
-        "appkey": config.app_key,
-        "appsecret": config.app_secret,
-    }
-    resp = requests.post(url, json=payload, timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
+    with _TOKEN_LOCK:
+        cached = _load_cached_token(config.env)
+        if cached and not force_refresh and _is_token_valid(cached):
+            return str(cached["access_token"])
+
+        url = f"{config.base_url}/oauth2/tokenP"
+        payload = {
+            "grant_type": "client_credentials",
+            "appkey": config.app_key,
+            "appsecret": config.app_secret,
+        }
+        resp = requests.post(url, json=payload, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
 
     token = data.get("access_token")
     if not token:
