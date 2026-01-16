@@ -21,6 +21,9 @@ from core.portfolio_importer import (
     upsert_portfolio_snapshots,
 )
 from core.user_gate import require_user
+from core.ticker_lookup import TickerSuggestion
+from core.pykis_adapter import debug_pykis_stock
+from core.ticker_resolver import resolve_missing_ticker_names
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import normalize_ticker
 
@@ -32,6 +35,18 @@ st.caption("보유 종목 Snapshot/Lot CSV 업로드, 수동 거래 입력, 기�
 def _dump_sqlite_db(path: Path) -> str:
     with sqlite3.connect(path) as conn:
         return "\n".join(conn.iterdump())
+
+
+def _is_complete_ticker(value: str) -> bool:
+    if not value:
+        return False
+    if value.isdigit():
+        return len(value) == 6
+    if value.startswith("A") and value[1:].isdigit():
+        return len(value) == 7
+    if len(value) == 6 and value[0].isdigit() and value.isalnum():
+        return any(ch.isalpha() for ch in value)
+    return False
 
 
 
@@ -353,6 +368,16 @@ with st.expander("수동 거래 입력", expanded=False):
         limit=30,
         show_input=False,
     )
+    resolved_ticker = normalize_ticker(manual_ticker)
+    if resolved_ticker and not manual_candidate and _is_complete_ticker(resolved_ticker):
+        with db_session() as session:
+            resolved = resolve_missing_ticker_names(session, [resolved_ticker])
+        resolved_name = resolved.get(resolved_ticker)
+        if resolved_name:
+            manual_candidate = TickerSuggestion(ticker=resolved_ticker, name_ko=resolved_name)
+            st.caption(f"자동 조회: {resolved_name} ({resolved_ticker})")
+        if st.checkbox("pykis debug", value=False, key="manual_trade_pykis_debug"):
+            st.write(debug_pykis_stock(resolved_ticker))
 
     trade_account = st.selectbox(
         "계좌",

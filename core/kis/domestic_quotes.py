@@ -38,6 +38,16 @@ def _get_domestic_tr_id(env: str) -> str:
     return get_kis_setting("KIS_TR_ID_DOMESTIC_PRICE", "FHKST01010100") or "FHKST01010100"
 
 
+def _get_domestic_symbol_info_tr_id(env: str) -> str | None:
+    if env == "paper":
+        return get_kis_setting("KIS_TR_ID_DOMESTIC_SYMBOL_INFO_PAPER")
+    return get_kis_setting("KIS_TR_ID_DOMESTIC_SYMBOL_INFO")
+
+
+def _get_domestic_symbol_info_path() -> str | None:
+    return get_kis_setting("KIS_DOMESTIC_SYMBOL_INFO_PATH")
+
+
 def fetch_domestic_price_now(symbol_6: str, *, env: str | None = None) -> dict:
     symbol = symbol_6.strip()
     if symbol.startswith("A") and symbol[1:].isdigit():
@@ -55,10 +65,12 @@ def fetch_domestic_price_now(symbol_6: str, *, env: str | None = None) -> dict:
         tr_id=tr_id,
         env=env,
     )
-    output = data.get("output") or {}
+    output = _pick_price_output(data)
+    name_ko = _extract_name_ko(output)
 
     return {
         "symbol": symbol,
+        "name_ko": name_ko,
         "last": _to_float(output.get("stck_prpr") or output.get("last")),
         "change": _to_float(output.get("prdy_vrss") or output.get("diff")),
         "change_rate": _to_float(output.get("prdy_ctrt") or output.get("diff_rate")),
@@ -69,6 +81,88 @@ def fetch_domestic_price_now(symbol_6: str, *, env: str | None = None) -> dict:
         "as_of": datetime.now(),
         "raw": output,
     }
+
+
+def fetch_domestic_symbol_info(symbol_6: str, *, env: str | None = None) -> dict:
+    path = _get_domestic_symbol_info_path()
+    tr_id = _get_domestic_symbol_info_tr_id(env or "prod")
+    if not path or not tr_id:
+        return {}
+
+    symbol = symbol_6.strip()
+    if symbol.startswith("A") and symbol[1:].isdigit():
+        symbol = symbol[1:]
+
+    params = {
+        "fid_cond_mrkt_div_code": "J",
+        "fid_input_iscd": symbol,
+    }
+    data = kis_request(
+        "GET",
+        path,
+        params=params,
+        tr_id=tr_id,
+        env=env,
+    )
+    output = _pick_price_output(data)
+    return {
+        "symbol": symbol,
+        "name_ko": _extract_name_ko(output),
+        "raw": output,
+    }
+
+
+def _extract_name_ko(output: dict) -> str | None:
+    candidates = [
+        "hts_kor_isnm",
+        "kor_isnm",
+        "stck_name",
+        "itms_nm",
+        "prdt_name",
+        "prdt_abrv_name",
+        "name",
+        "stock_name",
+        "itm_name",
+    ]
+    for key in candidates:
+        value = output.get(key)
+        if value:
+            text = str(value).strip()
+            if text:
+                return text
+    for key, value in output.items():
+        if not isinstance(value, str):
+            continue
+        text = value.strip()
+        if not text:
+            continue
+        lower = key.lower()
+        if "name" in lower or "isnm" in lower:
+            if any(bad in lower for bad in ("bstp", "inds", "sector", "market")):
+                continue
+            return text
+    for key, value in output.items():
+        if not isinstance(value, str):
+            continue
+        text = value.strip()
+        if not text:
+            continue
+        lower = key.lower()
+        if "name" in lower or "isnm" in lower:
+            return text
+    return None
+
+
+def _pick_price_output(data: dict) -> dict:
+    for key in ("output", "output1", "output2"):
+        value = data.get(key)
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, list) and value:
+            first = value[0]
+            if isinstance(first, dict):
+                return first
+    return {}
 
 
 def _get_domestic_history_tr_id(env: str) -> str:

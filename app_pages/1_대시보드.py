@@ -8,6 +8,7 @@ from core.cash_service import (
 )
 from core.db import db_session
 from core.models import DividendEvent, AccountType, TickerMaster
+from core.ticker_resolver import resolve_missing_ticker_names
 from core.user_gate import require_user
 from core.valuation_service import (
     calculate_position_valuations,
@@ -55,6 +56,9 @@ with db_session() as s:
         q = q.where(DividendEvent.account_type == AccountType(account_filter))
 
     rows = s.execute(q).all()
+    tickers = {row.ticker for row in rows if row.ticker}
+    if tickers:
+        resolve_missing_ticker_names(s, tickers)
     ticker_name_map = dict(
         s.execute(select(TickerMaster.ticker, TickerMaster.name_ko)).all()
     )

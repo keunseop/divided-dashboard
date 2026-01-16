@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core.models import AccountType, HoldingLot, HoldingPosition, TickerMaster, TradeSide
+from core.ticker_resolver import resolve_missing_ticker_names
 from core.utils import normalize_ticker
 
 
@@ -42,6 +43,8 @@ def get_positions(
         stmt = stmt.where(HoldingPosition.ticker.in_([t.upper() for t in tickers]))
 
     rows = session.execute(stmt).all()
+    missing = {position.ticker for position, name_ko in rows if not name_ko}
+    resolved = resolve_missing_ticker_names(session, missing) if missing else {}
     views: list[HoldingPositionView] = []
     for position, name_ko in rows:
         if position.quantity <= 0:
@@ -49,7 +52,7 @@ def get_positions(
         views.append(
             HoldingPositionView(
                 ticker=position.ticker,
-                name_ko=name_ko,
+                name_ko=name_ko or resolved.get(position.ticker),
                 account_type=position.account_type,
                 quantity=position.quantity,
                 avg_buy_price_krw=position.avg_buy_price_krw,
@@ -271,6 +274,9 @@ def _build_position_views(session: Session, states: dict[tuple[str, AccountType]
         else []
     )
     name_map = {ticker: name for ticker, name in names}
+    missing = {ticker for ticker in ticker_set if ticker not in name_map}
+    if missing:
+        name_map.update(resolve_missing_ticker_names(session, missing))
 
     views: list[HoldingPositionView] = []
     for (ticker, acct), state in states.items():

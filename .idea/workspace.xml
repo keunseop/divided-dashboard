@@ -4,8 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="숫자 표기법 변경">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="국내 ETF 조회 실패 케이스 수정">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/holdings_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/holdings_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/kis/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/kis/domestic_quotes.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/domestic_quotes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/ticker_lookup.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ticker_lookup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/var/kis_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/var/kis_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,17 +50,17 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.check_dividend_metrics.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_market_data.executor&quot;: &quot;Run&quot;,
-    &quot;Python.update_kr_price_cache.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.check_dividend_metrics.executor": "Run",
+    "Python.test_market_data.executor": "Run",
+    "Python.update_kr_price_cache.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "settings.editor.selected.configurable": "terminal"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Python.update_kr_price_cache">
     <configuration name="check_dividend_metrics" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="divided-dashboard" />
@@ -377,11 +384,18 @@
       <option name="project" value="LOCAL" />
       <updated>1768490676443</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="국내 ETF 조회 실패 케이스 수정">
+      <option name="closed" value="true" />
+      <created>1768528195312</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1768528195312</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="workspace 파일 추가" />
     <MESSAGE value="ignore" />
     <MESSAGE value="알림톡 파서 추가" />
     <MESSAGE value="환율 조회 api 변경" />
@@ -406,6 +420,18 @@
     <MESSAGE value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
     <MESSAGE value="비밀번호 입력 일단 비활성화" />
     <MESSAGE value="숫자 표기법 변경" />
-    <option name="LAST_COMMIT_MESSAGE" value="숫자 표기법 변경" />
+    <MESSAGE value="국내 ETF 조회 실패 케이스 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="국내 ETF 조회 실패 케이스 수정" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/core/ticker_lookup.py</url>
+          <line>24</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

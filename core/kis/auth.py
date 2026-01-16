@@ -59,9 +59,7 @@ def get_access_token(*, env: str | None = None, force_refresh: bool = False) -> 
             "appkey": config.app_key,
             "appsecret": config.app_secret,
         }
-        resp = requests.post(url, json=payload, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
+        data = _request_token(url, payload)
 
     token = data.get("access_token")
     if not token:
@@ -83,3 +81,44 @@ def get_access_token(*, env: str | None = None, force_refresh: bool = False) -> 
     }
     _save_cached_token(config.env, cache_payload)
     return str(token)
+
+
+def _request_token(url: str, payload: dict[str, Any]) -> dict[str, Any]:
+    resp = requests.post(url, json=payload, timeout=15)
+    data = _safe_json(resp)
+    if _has_access_token(data):
+        return data
+    if _should_retry_form(data):
+        resp = requests.post(
+            url,
+            data=payload,
+            headers={"content-type": "application/x-www-form-urlencoded; charset=utf-8"},
+            timeout=15,
+        )
+        data = _safe_json(resp)
+        if _has_access_token(data):
+            return data
+    resp.raise_for_status()
+    return data
+
+
+def _safe_json(resp: requests.Response) -> dict[str, Any]:
+    try:
+        data = resp.json()
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _has_access_token(data: dict[str, Any]) -> bool:
+    return bool(data.get("access_token"))
+
+
+def _should_retry_form(data: dict[str, Any]) -> bool:
+    if not data:
+        return True
+    error_code = str(data.get("error_code") or "")
+    if error_code == "EGW00115":
+        return True
+    error_description = str(data.get("error_description") or "").lower()
+    return "grant_type" in error_description

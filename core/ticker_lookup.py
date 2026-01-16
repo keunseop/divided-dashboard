@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from core.db import db_session
 from core.models import TickerMaster
+from core.ticker_resolver import resolve_missing_ticker_names
 from core.utils import normalize_ticker
 
 
@@ -54,6 +55,17 @@ def find_ticker_candidates(query: str, limit: int = 20) -> List[TickerSuggestion
             if len(suggestions) >= limit:
                 return suggestions
 
+        if term and normalized and _is_complete_ticker(normalized):
+            resolved = resolve_missing_ticker_names(session, [normalized])
+            if normalized in resolved:
+                refreshed = session.get(TickerMaster, normalized)
+                if refreshed and refreshed.ticker not in seen:
+                    suggestions.append(
+                        TickerSuggestion(ticker=refreshed.ticker, name_ko=refreshed.name_ko)
+                    )
+                    seen.add(refreshed.ticker)
+                    return suggestions
+
         if term and normalized:
             stmt = (
                 select(TickerMaster)
@@ -71,3 +83,15 @@ def find_ticker_candidates(query: str, limit: int = 20) -> List[TickerSuggestion
                     break
 
     return suggestions
+
+
+def _is_complete_ticker(value: str) -> bool:
+    if not value:
+        return False
+    if value.isdigit():
+        return len(value) == 6
+    if value.startswith("A") and value[1:].isdigit():
+        return len(value) == 7
+    if len(value) == 6 and value[0].isdigit() and value.isalnum():
+        return any(ch.isalpha() for ch in value)
+    return False
