@@ -115,7 +115,7 @@ def _get_pykis_client() -> object | None:
         if client is not None and hasattr(client, "stock"):
             return client
 
-    for module_name in ("pykis.kis", "pykis.client", "pykis.api", "pykis.core"):
+    for module_name in ("pykis.kis", "pykis.client", "pykis.api", "pykis.core", "pykis.public_api"):
         try:
             mod = importlib.import_module(module_name)
         except Exception:
@@ -123,6 +123,8 @@ def _get_pykis_client() -> object | None:
         module_client = getattr(mod, "kis", None)
         if module_client is not None and hasattr(module_client, "stock"):
             return module_client
+        if hasattr(mod, "stock"):
+            return mod
         for name in ("Kis", "PyKis", "KIS", "Client"):
             cls = getattr(mod, name, None)
             if cls is None:
