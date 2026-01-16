@@ -54,6 +54,11 @@ def debug_pykis_stock(ticker: str) -> dict[str, object]:
     info["module_version"] = getattr(pykis, "__version__", None)
     info["module_has_stock"] = hasattr(pykis, "stock")
     info["module_submodules"] = _list_submodules(pykis)
+    public_api = _import_optional("pykis.public_api")
+    if public_api is not None:
+        info["public_api_has_stock"] = hasattr(public_api, "stock")
+        info["public_api_dir_sample"] = _pick_dir_sample(public_api)
+        info["public_api_attrs"] = _pick_kis_attrs(public_api)
     client = _get_pykis_client()
     if client is None:
         info["client_error"] = _LAST_PYKIS_ERROR or "pykis client init failed"
@@ -107,6 +112,9 @@ def _get_pykis_client() -> object | None:
         return pykis
 
     errors: list[str] = []
+    client = _try_public_api_client(errors)
+    if client is not None and hasattr(client, "stock"):
+        return client
     for name in ("Kis", "PyKis", "KIS", "Client"):
         cls = getattr(pykis, name, None)
         if cls is None:
@@ -198,6 +206,61 @@ def _try_build_client(cls: type, module: object, errors: list[str]) -> object | 
         return None
 
 
+def _try_public_api_client(errors: list[str]) -> object | None:
+    public_api = _import_optional("pykis.public_api")
+    if public_api is None:
+        errors.append("pykis.public_api import failed")
+        return None
+
+    KisAuth = getattr(public_api, "KisAuth", None)
+    PyKis = getattr(public_api, "PyKis", None)
+    if KisAuth is None or PyKis is None:
+        errors.append("pykis.public_api missing KisAuth/PyKis")
+        return None
+
+    secret_path = get_secret("KIS_PYKIS_SECRET_PATH") or ""
+    keep_token = _read_bool(get_secret("KIS_KEEP_TOKEN"))
+    if secret_path:
+        try:
+            auth = KisAuth.load(secret_path)
+            return PyKis(auth, keep_token=keep_token) if keep_token is not None else PyKis(auth)
+        except Exception as exc:
+            errors.append(f"KisAuth.load failed: {exc}")
+
+    app_key = get_secret("KIS_APP_KEY")
+    app_secret = get_secret("KIS_APP_SECRET")
+    user_id = get_secret("KIS_USER_ID") or get_secret("KIS_ID")
+    account = (
+        get_secret("KIS_ACCOUNT")
+        or get_secret("KIS_ACCOUNT_NO")
+        or get_secret("KIS_ACCOUNT_NUMBER")
+        or get_secret("KIS_ACCOUNT_NUM")
+    )
+    virtual = _read_bool(get_secret("KIS_VIRTUAL"))
+    if virtual is None:
+        env = (get_secret("KIS_ENV") or "").strip().lower()
+        virtual = env in {"paper", "vts", "mock"}
+
+    if not (user_id and app_key and app_secret and account):
+        errors.append("KisAuth config missing (id/appkey/secret/account)")
+        return None
+
+    try:
+        auth = KisAuth(
+            id=user_id,
+            appkey=app_key,
+            secretkey=app_secret,
+            account=account,
+            virtual=bool(virtual),
+        )
+        if keep_token is None:
+            return PyKis(auth)
+        return PyKis(auth, keep_token=keep_token)
+    except Exception as exc:
+        errors.append(f"KisAuth init failed: {exc}")
+        return None
+
+
 def _pick_kis_attrs(module: object) -> list[str]:
     try:
         names = dir(module)
@@ -232,3 +295,21 @@ def _list_submodules(module: object) -> list[str]:
         if len(names) >= 50:
             break
     return sorted(names)
+
+
+def _import_optional(name: str) -> object | None:
+    try:
+        return importlib.import_module(name)
+    except Exception:
+        return None
+
+
+def _read_bool(raw: str | None) -> bool | None:
+    if raw is None:
+        return None
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if value in {"0", "false", "no", "n", "off"}:
+        return False
+    return None
