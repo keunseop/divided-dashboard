@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import pkgutil
 from functools import lru_cache
 
 from core.secrets import get_secret
@@ -48,6 +49,11 @@ def debug_pykis_stock(ticker: str) -> dict[str, object]:
 
     info["import_ok"] = True
     info["module_attrs"] = _pick_kis_attrs(pykis)
+    info["module_dir_sample"] = _pick_dir_sample(pykis)
+    info["module_file"] = getattr(pykis, "__file__", None)
+    info["module_version"] = getattr(pykis, "__version__", None)
+    info["module_has_stock"] = hasattr(pykis, "stock")
+    info["module_submodules"] = _list_submodules(pykis)
     client = _get_pykis_client()
     if client is None:
         info["client_error"] = _LAST_PYKIS_ERROR or "pykis client init failed"
@@ -97,6 +103,8 @@ def _get_pykis_client() -> object | None:
     module_client = getattr(pykis, "kis", None)
     if module_client is not None and hasattr(module_client, "stock"):
         return module_client
+    if hasattr(pykis, "stock"):
+        return pykis
 
     errors: list[str] = []
     for name in ("Kis", "PyKis", "KIS", "Client"):
@@ -199,3 +207,26 @@ def _pick_kis_attrs(module: object) -> list[str]:
         if "kis" in lower or "stock" in lower:
             keep.append(name)
     return sorted(keep)[:30]
+
+
+def _pick_dir_sample(module: object) -> list[str]:
+    try:
+        names = dir(module)
+    except Exception:
+        return []
+    return sorted(names)[:50]
+
+
+def _list_submodules(module: object) -> list[str]:
+    try:
+        pkg_path = getattr(module, "__path__", None)
+        if not pkg_path:
+            return []
+    except Exception:
+        return []
+    names: list[str] = []
+    for info in pkgutil.iter_modules(pkg_path):
+        names.append(info.name)
+        if len(names) >= 50:
+            break
+    return sorted(names)
