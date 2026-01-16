@@ -8,3 +8,4 @@ yfinance>=0.2.40
 OpenDartReader>=0.2.3
 streamlit-searchbox>=0.1.4
 finance-datareader>=0.9.35
+pykis
