@@ -57,4 +57,14 @@ def infer_market_from_ticker(ticker: str, declared: str | None = None) -> str:
     if len(normalized) >= 5 and normalized[0].isalpha() and normalized[1:].isdigit():
         return "KR"
 
+    # KRX identifiers can be 6-char alnum codes starting with digits (e.g., ETF/ETN-like).
+    if (
+        len(normalized) == 6
+        and normalized.isalnum()
+        and any(ch.isdigit() for ch in normalized)
+        and any(ch.isalpha() for ch in normalized)
+        and normalized[0].isdigit()
+    ):
+        return "KR"
+
     return "US"

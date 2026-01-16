@@ -4,15 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="비밀번호 입력 일단 비활성화">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="숫자 표기법 변경">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/5_종목_검색.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/5_종목_검색.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/6_알림톡_파서.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/6_알림톡_파서.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/93_관리자_DART_단건_조회.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/93_관리자_DART_단건_조회.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/94_관리자_DART_배당_미리채우기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/94_관리자_DART_배당_미리채우기.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -376,11 +369,18 @@
       <option name="project" value="LOCAL" />
       <updated>1768482423245</updated>
     </task>
-    <option name="localTasksCounter" value="29" />
+    <task id="LOCAL-00029" summary="숫자 표기법 변경">
+      <option name="closed" value="true" />
+      <created>1768490676443</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1768490676443</updated>
+    </task>
+    <option name="localTasksCounter" value="30" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="원화 표시 완료, missing ticker 추가 기능 완료" />
     <MESSAGE value="workspace 파일 추가" />
     <MESSAGE value="ignore" />
     <MESSAGE value="알림톡 파서 추가" />
@@ -405,6 +405,7 @@
     <MESSAGE value="가격 조회 방식 limit 처리, 종목 검색 차트 수정" />
     <MESSAGE value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
     <MESSAGE value="비밀번호 입력 일단 비활성화" />
-    <option name="LAST_COMMIT_MESSAGE" value="비밀번호 입력 일단 비활성화" />
+    <MESSAGE value="숫자 표기법 변경" />
+    <option name="LAST_COMMIT_MESSAGE" value="숫자 표기법 변경" />
   </component>
 </project>
