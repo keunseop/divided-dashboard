@@ -4,14 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="국내 ETF 조회 실패 케이스 수정">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="pykis import 수정">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/holdings_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/holdings_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/kis/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/auth.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/kis/domestic_quotes.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/domestic_quotes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/ticker_lookup.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ticker_lookup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/secrets.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/secrets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/var/kis_token.json" beforeDir="false" afterPath="$PROJECT_DIR$/var/kis_token.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -50,17 +47,17 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.check_dividend_metrics.executor": "Run",
-    "Python.test_market_data.executor": "Run",
-    "Python.update_kr_price_cache.executor": "Debug",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "settings.editor.selected.configurable": "terminal"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.check_dividend_metrics.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_market_data.executor&quot;: &quot;Run&quot;,
+    &quot;Python.update_kr_price_cache.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Python.update_kr_price_cache">
     <configuration name="check_dividend_metrics" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="divided-dashboard" />
@@ -392,14 +389,58 @@
       <option name="project" value="LOCAL" />
       <updated>1768528195312</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="pykis 적용, ETF 조회 안되는 문제 수정">
+      <option name="closed" value="true" />
+      <created>1768537710813</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1768537710813</updated>
+    </task>
+    <task id="LOCAL-00032" summary="pykis 적용, ETF 조회 안되는 문제 수정">
+      <option name="closed" value="true" />
+      <created>1768537886045</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1768537886045</updated>
+    </task>
+    <task id="LOCAL-00033" summary="pykis 의존성 추가">
+      <option name="closed" value="true" />
+      <created>1768538062369</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1768538062369</updated>
+    </task>
+    <task id="LOCAL-00034" summary="pykis 디버그 추가">
+      <option name="closed" value="true" />
+      <created>1768538232658</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1768538232658</updated>
+    </task>
+    <task id="LOCAL-00035" summary="pykis import 수정">
+      <option name="closed" value="true" />
+      <created>1768538304594</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1768538304594</updated>
+    </task>
+    <task id="LOCAL-00036" summary="pykis import 수정">
+      <option name="closed" value="true" />
+      <created>1768538604774</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1768538604774</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="ignore" />
-    <MESSAGE value="알림톡 파서 추가" />
-    <MESSAGE value="환율 조회 api 변경" />
-    <MESSAGE value="배당 조회 api 추가, DB 캐시 기능 추가 등" />
     <MESSAGE value="현재 포지션 추가 기능" />
     <MESSAGE value="대시보드에 현재가 및 평가손익 추가" />
     <MESSAGE value="페이지명 한글화 및 관리자 페이지로 분리" />
@@ -421,7 +462,11 @@
     <MESSAGE value="비밀번호 입력 일단 비활성화" />
     <MESSAGE value="숫자 표기법 변경" />
     <MESSAGE value="국내 ETF 조회 실패 케이스 수정" />
-    <option name="LAST_COMMIT_MESSAGE" value="국내 ETF 조회 실패 케이스 수정" />
+    <MESSAGE value="pykis 적용, ETF 조회 안되는 문제 수정" />
+    <MESSAGE value="pykis 의존성 추가" />
+    <MESSAGE value="pykis 디버그 추가" />
+    <MESSAGE value="pykis import 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="pykis import 수정" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
