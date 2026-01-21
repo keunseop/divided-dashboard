@@ -50,20 +50,31 @@ def _import_public_api() -> tuple[type, type]:
     import importlib
     import sys
 
-    try:
-        module = importlib.import_module("pykis.public_api")
-    except Exception as exc:
-        raise RuntimeError(
-            "KIS auth library is required but could not be imported. "
-            "Install python-kis (preferred) or pykis. "
-            f"python={sys.executable}. error={exc}"
-        ) from exc
+    errors: list[str] = []
+    candidates = (
+        "pykis.public_api",
+        "pykis.api",
+        "pykis.kis",
+        "pykis",
+        "python_kis.public_api",
+        "python_kis",
+    )
+    for module_name in candidates:
+        try:
+            module = importlib.import_module(module_name)
+        except Exception as exc:
+            errors.append(f"{module_name}: {exc}")
+            continue
+        Api = getattr(module, "Api", None)
+        DomainInfo = getattr(module, "DomainInfo", None)
+        if Api is not None and DomainInfo is not None:
+            return Api, DomainInfo
 
-    Api = getattr(module, "Api", None)
-    DomainInfo = getattr(module, "DomainInfo", None)
-    if Api is None or DomainInfo is None:
-        raise RuntimeError("pykis.public_api Api/DomainInfo is missing.")
-    return Api, DomainInfo
+    raise RuntimeError(
+        "KIS auth library is required but could not be imported. "
+        "Install python-kis (preferred) or pykis. "
+        f"python={sys.executable}. error={'; '.join(errors) or 'module not found'}"
+    )
 
 
 def _load_auth_payload(env_key: str) -> dict[str, Any]:

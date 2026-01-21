@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="pykis 사용하도록 수정">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/5_종목_검색.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/5_종목_검색.py" afterDir="false" />
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="pykis 인증 수정">
       <change beforePath="$PROJECT_DIR$/core/kis/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/kis/auth.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -443,11 +441,18 @@
       <option name="project" value="LOCAL" />
       <updated>1768734851639</updated>
     </task>
-    <option name="localTasksCounter" value="38" />
+    <task id="LOCAL-00038" summary="pykis 인증 수정">
+      <option name="closed" value="true" />
+      <created>1769015986108</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1769015986108</updated>
+    </task>
+    <option name="localTasksCounter" value="39" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="대시보드에 현재가 및 평가손익 추가" />
     <MESSAGE value="페이지명 한글화 및 관리자 페이지로 분리" />
     <MESSAGE value="DB 마이그레이션" />
     <MESSAGE value="배당정보 미리 가져오기 추가" />
@@ -472,7 +477,8 @@
     <MESSAGE value="pykis 디버그 추가" />
     <MESSAGE value="pykis import 수정" />
     <MESSAGE value="pykis 사용하도록 수정" />
-    <option name="LAST_COMMIT_MESSAGE" value="pykis 사용하도록 수정" />
+    <MESSAGE value="pykis 인증 수정" />
+    <option name="LAST_COMMIT_MESSAGE" value="pykis 인증 수정" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
