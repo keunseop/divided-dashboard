@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -9,17 +10,34 @@ from core.secrets import get_secret
 
 _AUTH_LOCK = threading.Lock()
 _AUTH_INSTANCES: dict[str, object] = {}
+_TOKEN_LOCK = threading.Lock()
+_ACCESS_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
+_TOKEN_BURST_TTL_SECONDS = 30.0
 _DEFAULT_SECRET_PATH = Path(__file__).resolve().parents[2] / "var" / "kis_secret.json"
 
 
 def get_access_token(*, env: str | None = None, force_refresh: bool = False) -> str:
+    env_key = (env or get_secret("KIS_ENV") or "default").strip().lower() or "default"
+    if not force_refresh:
+        cached = _get_cached_token(env_key)
+        if cached:
+            return cached
     auth = _get_auth(env)
-    if force_refresh:
-        _refresh_auth(auth)
-    token = _extract_access_token(auth, env)
-    if not token:
-        raise RuntimeError("pykis token provider did not return an access token.")
-    return token
+    with _TOKEN_LOCK:
+        if not force_refresh:
+            cached = _get_cached_token(env_key)
+            if cached:
+                return cached
+        if force_refresh:
+            _refresh_auth(auth)
+        token = _extract_access_token(auth, env)
+        if not token:
+            _refresh_auth(auth)
+            token = _extract_access_token(auth, env)
+        if not token:
+            raise RuntimeError("pykis token provider did not return an access token.")
+        _ACCESS_TOKEN_CACHE[env_key] = (token, time.monotonic())
+        return token
 
 
 def _get_auth(env: str | None) -> object:
@@ -100,6 +118,8 @@ def _build_pykis_client(auth_payload: dict[str, Any], env_key: str) -> object | 
         secret_path = str(_DEFAULT_SECRET_PATH)
 
     keep_token = _read_bool(get_secret("KIS_KEEP_TOKEN"))
+    if keep_token is None and secret_path:
+        keep_token = True
     if secret_path:
         try:
             auth = KisAuth.load(secret_path)
@@ -131,6 +151,16 @@ def _build_pykis_client(auth_payload: dict[str, Any], env_key: str) -> object | 
         return PyKis(auth, keep_token=keep_token) if keep_token is not None else PyKis(auth)
     except Exception:
         return None
+
+
+def _get_cached_token(env_key: str) -> str | None:
+    cached = _ACCESS_TOKEN_CACHE.get(env_key)
+    if not cached:
+        return None
+    token, issued_at = cached
+    if time.monotonic() - issued_at <= _TOKEN_BURST_TTL_SECONDS:
+        return token
+    return None
 
 
 def _load_auth_payload(env_key: str) -> dict[str, Any]:
