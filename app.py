@@ -21,6 +21,7 @@ admin_master = st.Page("app_pages/91_관리자_종목_마스터_관리.py", titl
 admin_missing = st.Page("app_pages/92_관리자_미등록_티커_확인.py", title="미등록 티커 확인", icon="❓")
 admin_dart_single = st.Page("app_pages/93_관리자_DART_단건_조회.py", title="DART 단건 조회", icon="🛰️")
 admin_dart_prefetch = st.Page("app_pages/94_관리자_DART_배당_미리채우기.py", title="DART 배당 미리 채우기", icon="⚙️")
+env_diagnostics = st.Page("app_pages/9_환경_진단.py", title="환경 진단", icon="🧪")
 
 nav = st.navigation(
     {
@@ -33,6 +34,7 @@ nav = st.navigation(
             admin_missing,
             admin_dart_single,
             admin_dart_prefetch,
+            env_diagnostics,
         ],
     }
 )
