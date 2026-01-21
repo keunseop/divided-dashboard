@@ -36,8 +36,15 @@ def _get_auth(env: str | None) -> object:
 
 
 def _build_auth(env_key: str) -> object:
-    Api, DomainInfo = _import_public_api()
     auth_payload = _load_auth_payload(env_key)
+    try:
+        Api, DomainInfo = _import_public_api()
+    except RuntimeError:
+        client = _build_pykis_client(auth_payload, env_key)
+        if client is not None:
+            return client
+        raise
+
     key_info = {
         "appkey": auth_payload["appkey"],
         "appsecret": auth_payload["appsecret"],
@@ -75,6 +82,55 @@ def _import_public_api() -> tuple[type, type]:
         "Install python-kis (preferred) or pykis. "
         f"python={sys.executable}. error={'; '.join(errors) or 'module not found'}"
     )
+
+
+def _build_pykis_client(auth_payload: dict[str, Any], env_key: str) -> object | None:
+    try:
+        import pykis  # type: ignore
+    except Exception:
+        return None
+
+    KisAuth = getattr(pykis, "KisAuth", None)
+    PyKis = getattr(pykis, "PyKis", None)
+    if KisAuth is None or PyKis is None:
+        return None
+
+    secret_path = (get_secret("KIS_PYKIS_SECRET_PATH") or "").strip()
+    if not secret_path and _DEFAULT_SECRET_PATH.exists():
+        secret_path = str(_DEFAULT_SECRET_PATH)
+
+    keep_token = _read_bool(get_secret("KIS_KEEP_TOKEN"))
+    if secret_path:
+        try:
+            auth = KisAuth.load(secret_path)
+            return PyKis(auth, keep_token=keep_token) if keep_token is not None else PyKis(auth)
+        except Exception:
+            try:
+                return PyKis(secret_path, keep_token=keep_token) if keep_token is not None else PyKis(secret_path)
+            except Exception:
+                pass
+
+    user_id = get_secret("KIS_USER_ID") or get_secret("KIS_ID")
+    account = (
+        get_secret("KIS_ACCOUNT")
+        or get_secret("KIS_ACCOUNT_NO")
+        or get_secret("KIS_ACCOUNT_NUMBER")
+        or get_secret("KIS_ACCOUNT_NUM")
+    )
+    if not (user_id and account):
+        return None
+
+    try:
+        auth = KisAuth(
+            id=user_id,
+            appkey=auth_payload["appkey"],
+            secretkey=auth_payload["appsecret"],
+            account=account,
+            virtual=bool(auth_payload["virtual"]),
+        )
+        return PyKis(auth, keep_token=keep_token) if keep_token is not None else PyKis(auth)
+    except Exception:
+        return None
 
 
 def _load_auth_payload(env_key: str) -> dict[str, Any]:
@@ -245,7 +301,7 @@ def _get_public_api_token(auth: object) -> str | None:
 def _is_pykis_client(auth: object) -> bool:
     module = getattr(type(auth), "__module__", "")
     name = getattr(type(auth), "__name__", "")
-    return module.startswith("pykis.kis") and name == "PyKis"
+    return module.startswith("pykis") and name in {"PyKis", "Kis"}
 
 
 def _get_pykis_token(auth: object, env: str | None) -> object | None:
