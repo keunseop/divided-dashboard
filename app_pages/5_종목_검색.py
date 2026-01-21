@@ -20,6 +20,8 @@ from core.market_service import (
     get_price_quote_for_ticker,
 )
 from core.models import DividendCache, DividendEvent, TickerMaster
+from core.ticker_lookup import TickerSuggestion
+from core.ticker_resolver import resolve_missing_ticker_names
 from core.ui_autocomplete import render_ticker_autocomplete
 from core.utils import infer_market_from_ticker, normalize_ticker
 
@@ -27,6 +29,18 @@ from core.utils import infer_market_from_ticker, normalize_ticker
 st.title("종목 검색")
 
 st.caption("티커로 직접 조회하여 최신 배당/가격 내역을 확인합니다.")
+
+
+def _is_complete_ticker(value: str) -> bool:
+    if not value:
+        return False
+    if value.isdigit():
+        return len(value) == 6
+    if value.startswith("A") and value[1:].isdigit():
+        return len(value) == 7
+    if len(value) == 6 and value[0].isdigit() and value.isalnum():
+        return any(ch.isalpha() for ch in value)
+    return False
 
 @st.cache_data(ttl=300)
 def _load_owned_tickers() -> dict[str, str]:
@@ -224,6 +238,14 @@ selected_candidate = render_ticker_autocomplete(
     limit=20,
     show_input=False,
 )
+manual_normalized = normalize_ticker(manual_ticker)
+if manual_normalized and not selected_candidate and _is_complete_ticker(manual_normalized):
+    with db_session() as session:
+        resolved = resolve_missing_ticker_names(session, [manual_normalized])
+    resolved_name = resolved.get(manual_normalized)
+    if resolved_name:
+        selected_candidate = TickerSuggestion(ticker=manual_normalized, name_ko=resolved_name)
+        st.caption(f"자동 조회: {resolved_name} ({manual_normalized})")
 
 market_option = st.selectbox(
     "시장",
@@ -245,8 +267,6 @@ force_refresh = st.checkbox(
 
 if st.button("조회") is False:
     st.stop()
-
-manual_normalized = normalize_ticker(manual_ticker)
 if selected_owned:
     ticker = selected_owned
 elif selected_candidate:

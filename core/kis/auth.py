@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import threading
 from pathlib import Path
 from typing import Any
@@ -11,7 +10,6 @@ from core.secrets import get_secret
 _AUTH_LOCK = threading.Lock()
 _AUTH_INSTANCES: dict[str, object] = {}
 _DEFAULT_SECRET_PATH = Path(__file__).resolve().parents[2] / "var" / "kis_secret.json"
-_LOGGER = logging.getLogger(__name__)
 
 
 def get_access_token(*, env: str | None = None, force_refresh: bool = False) -> str:
@@ -20,7 +18,6 @@ def get_access_token(*, env: str | None = None, force_refresh: bool = False) -> 
         _refresh_auth(auth)
     token = _extract_access_token(auth, env)
     if not token:
-        _log_auth_debug(auth)
         raise RuntimeError("pykis token provider did not return an access token.")
     return token
 
@@ -217,25 +214,6 @@ def _refresh_auth(auth: object) -> None:
             return
         except Exception:
             continue
-
-
-def _log_auth_debug(auth: object) -> None:
-    try:
-        auth_type = type(auth)
-        attrs = [name for name in dir(auth) if "token" in name.lower() or "auth" in name.lower()]
-        _LOGGER.warning(
-            "KisAuth token missing. type=%s module=%s attrs=%s",
-            auth_type.__name__,
-            getattr(auth_type, "__module__", "unknown"),
-            ",".join(attrs)[:800],
-        )
-        if hasattr(auth, "__dict__"):
-            _LOGGER.warning(
-                "KisAuth __dict__ keys=%s",
-                ",".join(list(auth.__dict__.keys()))[:800],
-            )
-    except Exception:
-        return
 
 
 def _is_public_api_client(auth: object) -> bool:
