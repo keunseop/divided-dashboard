@@ -4,8 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="진단 코드 추가">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="agent 파일 추가">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -465,14 +466,42 @@
       <option name="project" value="LOCAL" />
       <updated>1769016936339</updated>
     </task>
-    <option name="localTasksCounter" value="41" />
+    <task id="LOCAL-00041" summary="진단 코드 추가2">
+      <option name="closed" value="true" />
+      <created>1769017221347</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1769017221347</updated>
+    </task>
+    <task id="LOCAL-00042" summary="pykis 객체 생성 추가">
+      <option name="closed" value="true" />
+      <created>1769017498821</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1769017498821</updated>
+    </task>
+    <task id="LOCAL-00043" summary="중복 인증 수정">
+      <option name="closed" value="true" />
+      <created>1769018354651</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1769018354651</updated>
+    </task>
+    <task id="LOCAL-00044" summary="agent 파일 추가">
+      <option name="closed" value="true" />
+      <created>1769018472844</created>
+      <option name="number" value="00044" />
+      <option name="presentableId" value="LOCAL-00044" />
+      <option name="project" value="LOCAL" />
+      <updated>1769018472844</updated>
+    </task>
+    <option name="localTasksCounter" value="45" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="배당정보 미리 가져오기 추가" />
-    <MESSAGE value="종목 검색 후 차트 보여주기" />
-    <MESSAGE value="한투 api 연동 최근 가격 조회" />
-    <MESSAGE value="현금 입력 기능 추가, 차트 변경" />
     <MESSAGE value="알림톡 파서 수정, 수동 매수/매도 오류 수정" />
     <MESSAGE value="DB 버전 관리에서 분리, 주요 key 제외" />
     <MESSAGE value="DB write 실패 수정" />
@@ -494,7 +523,11 @@
     <MESSAGE value="pykis 인증 수정" />
     <MESSAGE value="pykis 인증 수정2" />
     <MESSAGE value="진단 코드 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="진단 코드 추가" />
+    <MESSAGE value="진단 코드 추가2" />
+    <MESSAGE value="pykis 객체 생성 추가" />
+    <MESSAGE value="중복 인증 수정" />
+    <MESSAGE value="agent 파일 추가" />
+    <option name="LAST_COMMIT_MESSAGE" value="agent 파일 추가" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
