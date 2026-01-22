@@ -113,7 +113,7 @@ monthly_chart = alt.Chart(monthly).mark_line(point=True).encode(
 )
 st.altair_chart(monthly_chart, use_container_width=True)
 
-st.subheader("종목 TOP 15")
+st.subheader("종목 TOP 10")
 top_col1, top_col2 = st.columns([2, 1])
 years_available = sorted(df["year"].dropna().unique().tolist())
 year_options = ["전체"] + [str(int(y)) for y in years_available]
@@ -133,7 +133,7 @@ top = (
     top_source.groupby("ticker", as_index=False)["value"]
     .sum()
     .sort_values("value", ascending=False)
-    .head(15)
+    .head(10)
 )
 top["name_ko"] = top["ticker"].map(lambda t: ticker_name_map.get(t, "미등록"))
 
@@ -159,13 +159,43 @@ if selected_year is not None:
 else:
     top["yoy"] = None
 
-top_display = top[["ticker", "name_ko", "value", "yoy"]].copy()
-top_display["value"] = top_display["value"].map(lambda v: f"{v:,.0f}원")
-if selected_year is not None:
-    top_display["yoy"] = top_display["yoy"].map(lambda v: f"{v*100:,.2f}%" if v is not None else "N/A")
+top_pie = top[["ticker", "name_ko", "value"]].copy()
+top_pie["label"] = top_pie["name_ko"] + " (" + top_pie["ticker"] + ")"
+top_total = top_source["value"].sum()
+top_pie_total = top_pie["value"].sum()
+others_value = max(top_total - top_pie_total, 0)
+if others_value > 0:
+    top_pie = pd.concat(
+        [
+            top_pie,
+            pd.DataFrame(
+                [
+                    {
+                        "ticker": "OTHERS",
+                        "name_ko": "기타",
+                        "value": others_value,
+                        "label": "기타",
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
+if top_pie.empty or top_total <= 0:
+    st.info("표시할 배당 데이터가 없습니다.")
 else:
-    top_display = top_display.drop(columns=["yoy"])
-st.dataframe(top_display, use_container_width=True)
+    top_pie["pct"] = top_pie["value"] / top_total
+    top_pie_chart = alt.Chart(top_pie).mark_arc(innerRadius=40, thetaOffset=-1.5708).encode(
+        theta=alt.Theta("value:Q", stack=True, sort="descending"),
+        color=alt.Color("label:N", title=""),
+        order=alt.Order("value:Q", sort="descending"),
+        tooltip=[
+            alt.Tooltip("label:N", title="종목"),
+            alt.Tooltip("value:Q", title="배당금", format=",.0f"),
+            alt.Tooltip("pct:Q", title="비중", format=".1%"),
+        ],
+    )
+    st.altair_chart(top_pie_chart, use_container_width=True)
 
 if show_yearly_summary:
     yearly_rows = []
@@ -257,6 +287,42 @@ with cash_cols[0]:
         st.warning("현금 스냅샷이 없습니다. 현금을 입력해 총자산을 함께 추적하세요.")
 with cash_cols[1]:
     st.info("현금 입력/입출금은 포트폴리오 관리에서 진행해 주세요.")
+
+asset_pie_data = []
+cash_value = 0.0
+if latest_cash_snapshot:
+    cash_value = latest_cash_snapshot.cash_krw
+if summary and summary.positions_count > 0:
+    display_valuations = [
+        val for val in valuations if selected_account is None or val.account_type == selected_account
+    ]
+    market_rows = [
+        {
+            "label": f"{val.ticker} ({val.name_ko})" if val.name_ko else val.ticker,
+            "value": val.market_value_krw,
+        }
+        for val in display_valuations
+        if val.market_value_krw is not None and val.market_value_krw > 0
+    ]
+    if market_rows or cash_value > 0:
+        asset_pie_data = market_rows + ([{"label": "현금", "value": cash_value}] if cash_value > 0 else [])
+        asset_total = sum(item["value"] for item in asset_pie_data)
+        if asset_total > 0:
+            asset_df = pd.DataFrame(asset_pie_data)
+            asset_df["pct"] = asset_df["value"] / asset_total
+            asset_chart = alt.Chart(asset_df).mark_arc(innerRadius=40, thetaOffset=-1.5708).encode(
+                theta=alt.Theta("value:Q", stack=True, sort="descending"),
+                color=alt.Color("label:N", title=""),
+                order=alt.Order("value:Q", sort="descending"),
+                tooltip=[
+                    alt.Tooltip("label:N", title="자산"),
+                    alt.Tooltip("value:Q", title="금액", format=",.0f"),
+                    alt.Tooltip("pct:Q", title="비중", format=".1%"),
+                ],
+            )
+            st.altair_chart(asset_chart, use_container_width=True)
+        else:
+            st.info("총자산이 0원이어서 비율 차트를 표시할 수 없습니다.")
 
 missing_prices = [
     f"{val.ticker} ({val.account_type.value})"

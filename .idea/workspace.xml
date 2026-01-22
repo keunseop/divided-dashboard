@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="agent 파일 추가">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="배당 내역 표시">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -498,11 +498,18 @@
       <option name="project" value="LOCAL" />
       <updated>1769018472844</updated>
     </task>
-    <option name="localTasksCounter" value="45" />
+    <task id="LOCAL-00045" summary="배당 내역 표시">
+      <option name="closed" value="true" />
+      <created>1769018878701</created>
+      <option name="number" value="00045" />
+      <option name="presentableId" value="LOCAL-00045" />
+      <option name="project" value="LOCAL" />
+      <updated>1769018878701</updated>
+    </task>
+    <option name="localTasksCounter" value="46" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="알림톡 파서 수정, 수동 매수/매도 오류 수정" />
     <MESSAGE value="DB 버전 관리에서 분리, 주요 key 제외" />
     <MESSAGE value="DB write 실패 수정" />
     <MESSAGE value="좌측 메뉴 구성 변경" />
@@ -527,7 +534,8 @@
     <MESSAGE value="pykis 객체 생성 추가" />
     <MESSAGE value="중복 인증 수정" />
     <MESSAGE value="agent 파일 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="agent 파일 추가" />
+    <MESSAGE value="배당 내역 표시" />
+    <option name="LAST_COMMIT_MESSAGE" value="배당 내역 표시" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
