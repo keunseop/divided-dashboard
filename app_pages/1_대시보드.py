@@ -21,26 +21,10 @@ from core.valuation_service import (
 
 require_user()
 st.title("대시보드")
-st.caption("배당 현황, 계좌별 지표, 포트폴리오 평가 추이를 한눈에 확인합니다.")
+st.caption("배당 현황과 포트폴리오 평가 추이를 한눈에 확인합니다.")
 
-filter_col, account_col = st.columns([3, 1.5])
-with filter_col:
-    metric = st.selectbox(
-        "기준",
-        ["KRW 세전(krwGross)", "KRW 세후(krwNet)"],
-        key="dashboard_metric",
-    )
-
-account_options = ["ALL"] + [acct.value for acct in AccountType if acct != AccountType.ALL]
-with account_col:
-    account_filter = st.selectbox(
-        "계좌",
-        account_options,
-        key="dashboard_account",
-        help="필요 시 계좌 유형별로 배당 현황을 제한할 수 있습니다.",
-    )
-
-col = "krw_gross" if metric.startswith("KRW 세전") else "krw_net"
+account_filter = "ALL"
+col = "krw_gross"
 
 with db_session() as s:
     q = (
@@ -81,11 +65,13 @@ this_year = pd.Timestamp.today().year
 ytd = df[df["year"] == this_year]["value"].sum()
 prev_year = df[df["year"] == this_year - 1]["value"].sum()
 yoy = (ytd / prev_year - 1) * 100 if prev_year > 0 else None
+total_cumulative = df["value"].sum()
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 c1.metric("올해 누적", fmt_krw(ytd))
 c2.metric("작년 총액", fmt_krw(prev_year))
 c3.metric("YoY(참고)", f"{yoy:,.2f}%" if yoy is not None else "N/A")
+c4.metric("총 누적 배당금", fmt_krw(total_cumulative))
 
 st.divider()
 
