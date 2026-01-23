@@ -282,15 +282,41 @@ if summary and summary.positions_count > 0:
     metrics_table = pd.DataFrame(
         [
             {
-                "총 투자원금": f"{summary.total_cost_krw:,.0f}원",
-                "현재 평가액": f"{summary.market_value_krw:,.0f}원",
-                "평가손익": f"{summary.gain_loss_krw:,.0f}원 ({delta_display})",
-                "현금": f"{cash_value:,.0f}원" if cash_value is not None else "N/A",
-                "총 자산": f"{total_asset_value:,.0f}원" if total_asset_value is not None else "N/A",
+                "총 투자원금": summary.total_cost_krw,
+                "현재 평가액": summary.market_value_krw,
+                "평가손익": summary.gain_loss_krw,
+                "수익률": summary.gain_loss_pct,
+                "현금": cash_value,
+                "총 자산": total_asset_value,
             }
         ]
     )
-    st.dataframe(metrics_table, use_container_width=True, hide_index=True)
+
+    def _gain_style_value(value):
+        if pd.isna(value):
+            return ""
+        if value > 0:
+            return "color: #d90429; font-weight: 600;"
+        if value < 0:
+            return "color: #0057d9; font-weight: 600;"
+        return ""
+
+    metrics_styled = (
+        metrics_table.style.format(
+            {
+                "총 투자원금": "{:,.0f}원",
+                "현재 평가액": "{:,.0f}원",
+                "평가손익": "{:,.0f}원",
+                "수익률": "{:,.2f}%",
+                "현금": "{:,.0f}원",
+                "총 자산": "{:,.0f}원",
+            },
+            na_rep="N/A",
+        )
+        .applymap(_gain_style_value, subset=["평가손익", "수익률"])
+        .hide(axis="index")
+    )
+    st.dataframe(metrics_styled, use_container_width=True)
 
 asset_pie_data = []
 cash_value = 0.0
