@@ -489,19 +489,17 @@ if summary_all and summary_all.positions_count > 0:
             result = upsert_valuation_snapshots(session, summaries)
         st.success(f"평가액 저장 완료 (inserted {result.inserted}, updated {result.updated})")
 
-st.subheader("평가액/현금 추이")
+st.subheader("총 자산 추이")
 history_label = "전체" if history_account == AccountType.ALL else history_account.value
 history_df = pd.DataFrame(
     [
         {
             "valuation_date": entry.valuation_date,
             "market_value_krw": entry.market_value_krw,
-            "total_cost_krw": entry.total_cost_krw,
-            "gain_loss_krw": entry.gain_loss_krw,
         }
         for entry in history_entries
     ]
-) if history_entries else pd.DataFrame(columns=["valuation_date", "market_value_krw", "total_cost_krw", "gain_loss_krw"])
+) if history_entries else pd.DataFrame(columns=["valuation_date", "market_value_krw"])
 cash_history_df = pd.DataFrame(
     [
         {
@@ -515,32 +513,15 @@ cash_history_df = pd.DataFrame(
 if not history_df.empty or not cash_history_df.empty:
     merged = pd.merge(history_df, cash_history_df, on="valuation_date", how="outer").sort_values("valuation_date")
     merged["cash_krw"] = merged["cash_krw"].ffill().fillna(0.0)
-    merged["total_cost_krw"] = merged["total_cost_krw"].ffill().fillna(0.0)
     merged["market_value_krw"] = merged["market_value_krw"].ffill().fillna(0.0)
-    merged["asset_cost_with_cash"] = merged["total_cost_krw"] + merged["cash_krw"]
     merged["asset_market_with_cash"] = merged["market_value_krw"] + merged["cash_krw"]
-    st.caption(f"{history_label} 계좌 기준 평가/현금 추이 (최근 {len(merged)}포인트)")
-    series_labels = {
-        "total_cost_krw": "총 원가",
-        "market_value_krw": "평가액",
-        "cash_krw": "현금",
-        "asset_market_with_cash": "평가+현금",
-    }
-    history_long = merged.melt(
-        id_vars=["valuation_date"],
-        value_vars=list(series_labels.keys()),
-        var_name="series",
-        value_name="value",
-    )
-    history_long["label"] = history_long["series"].map(series_labels)
-    history_chart = alt.Chart(history_long).mark_line().encode(
+    st.caption(f"{history_label} 계좌 기준 총 자산 추이 (최근 {len(merged)}포인트)")
+    history_chart = alt.Chart(merged).mark_line().encode(
         x=alt.X("valuation_date:T", title="날짜"),
-        y=alt.Y("value:Q", title="금액", axis=alt.Axis(format=",.0f")),
-        color=alt.Color("label:N", title=""),
+        y=alt.Y("asset_market_with_cash:Q", title="총 자산", axis=alt.Axis(format=",.0f")),
         tooltip=[
             alt.Tooltip("valuation_date:T", title="날짜"),
-            alt.Tooltip("label:N", title="항목"),
-            alt.Tooltip("value:Q", title="금액", format=",.0f"),
+            alt.Tooltip("asset_market_with_cash:Q", title="총 자산", format=",.0f"),
         ],
     )
     st.altair_chart(history_chart, use_container_width=True)
