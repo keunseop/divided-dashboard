@@ -256,37 +256,41 @@ summary_key = AccountType.ALL if selected_account is None else selected_account
 summary = summaries.get(summary_key)
 
 if summary and summary.positions_count > 0:
-    metric_cols = st.columns(3)
-    metric_cols[0].metric("총 투자원금", f"{summary.total_cost_krw:,.0f}원")
-    metric_cols[1].metric("현재 평가액", f"{summary.market_value_krw:,.0f}원")
     delta_display = (
         f"{summary.gain_loss_pct:,.2f}%" if summary.gain_loss_pct is not None else "N/A"
-    )
-    metric_cols[2].metric(
-        "평가손익",
-        f"{summary.gain_loss_krw:,.0f}원",
-        delta=delta_display,
     )
 else:
     st.info("표시할 포지션이 없거나 가격 정보를 가져올 수 없습니다.")
 
-cash_cols = st.columns([2, 1])
+cash_cols = st.columns([3, 1])
 with cash_cols[0]:
     if latest_cash_snapshot:
         cash_value = latest_cash_snapshot.cash_krw
-        metric_row = st.columns(3)
-        metric_row[0].metric("현금 (KRW)", f"{cash_value:,.0f}원")
         if summary and summary.positions_count > 0:
-            metric_row[1].metric("총자산 (원가+현금)", f"{(summary.total_cost_krw + cash_value):,.0f}원")
-            metric_row[2].metric("총자산 (평가+현금)", f"{(summary.market_value_krw + cash_value):,.0f}원")
+            total_asset_value = summary.market_value_krw + cash_value
         else:
-            metric_row[1].metric("총자산 (원가+현금)", "데이터 없음")
-            metric_row[2].metric("총자산 (평가+현금)", "데이터 없음")
+            total_asset_value = None
             st.info("평가 데이터가 없어 총자산 계산에 현금만 표시됩니다.")
     else:
         st.warning("현금 스냅샷이 없습니다. 현금을 입력해 총자산을 함께 추적하세요.")
+        cash_value = None
+        total_asset_value = None
 with cash_cols[1]:
-    st.info("현금 입력/입출금은 포트폴리오 관리에서 진행해 주세요.")
+    st.caption("현금 입력/입출금은 포트폴리오 관리에서 진행해 주세요.")
+
+if summary and summary.positions_count > 0:
+    metrics_table = pd.DataFrame(
+        [
+            {
+                "총 투자원금": f"{summary.total_cost_krw:,.0f}원",
+                "현재 평가액": f"{summary.market_value_krw:,.0f}원",
+                "평가손익": f"{summary.gain_loss_krw:,.0f}원 ({delta_display})",
+                "현금": f"{cash_value:,.0f}원" if cash_value is not None else "N/A",
+                "총 자산": f"{total_asset_value:,.0f}원" if total_asset_value is not None else "N/A",
+            }
+        ]
+    )
+    st.dataframe(metrics_table, use_container_width=True, hide_index=True)
 
 asset_pie_data = []
 cash_value = 0.0
@@ -310,16 +314,21 @@ if summary and summary.positions_count > 0:
         if asset_total > 0:
             asset_df = pd.DataFrame(asset_pie_data)
             asset_df["pct"] = asset_df["value"] / asset_total
+            legend_title = f"보유 종목 ({len(market_rows)}종)"
             asset_chart = alt.Chart(asset_df).mark_arc(innerRadius=40, thetaOffset=-1.5708).encode(
                 theta=alt.Theta("value:Q", stack=True, sort="descending"),
-                color=alt.Color("label:N", title=""),
+                color=alt.Color(
+                    "label:N",
+                    title=legend_title,
+                    legend=alt.Legend(columns=2, orient="right"),
+                ),
                 order=alt.Order("value:Q", sort="descending"),
                 tooltip=[
                     alt.Tooltip("label:N", title="자산"),
                     alt.Tooltip("value:Q", title="금액", format=",.0f"),
                     alt.Tooltip("pct:Q", title="비중", format=".1%"),
                 ],
-            )
+            ).properties(height=420, width=520)
             st.altair_chart(asset_chart, use_container_width=True)
         else:
             st.info("총자산이 0원이어서 비율 차트를 표시할 수 없습니다.")

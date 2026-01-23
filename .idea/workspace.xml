@@ -4,9 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="pie chart 추가">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="보유 종목 배당 추이 페이지 개선">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -514,11 +513,18 @@
       <option name="project" value="LOCAL" />
       <updated>1769104055103</updated>
     </task>
-    <option name="localTasksCounter" value="47" />
+    <task id="LOCAL-00047" summary="보유 종목 배당 추이 페이지 개선">
+      <option name="closed" value="true" />
+      <created>1769183945301</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1769183945301</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="DB write 실패 수정" />
     <MESSAGE value="좌측 메뉴 구성 변경" />
     <MESSAGE value="내 포지션 부분에 password 추가" />
     <MESSAGE value="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트" />
@@ -543,7 +549,8 @@
     <MESSAGE value="agent 파일 추가" />
     <MESSAGE value="배당 내역 표시" />
     <MESSAGE value="pie chart 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="pie chart 추가" />
+    <MESSAGE value="보유 종목 배당 추이 페이지 개선" />
+    <option name="LAST_COMMIT_MESSAGE" value="보유 종목 배당 추이 페이지 개선" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
