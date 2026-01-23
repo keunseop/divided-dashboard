@@ -10,6 +10,7 @@ from core.db import db_session
 from core.models import DividendEvent, AccountType, TickerMaster
 from core.ticker_resolver import resolve_missing_ticker_names
 from core.user_gate import require_user
+from core.utils import infer_market_from_ticker, normalize_market_code
 from core.valuation_service import (
     calculate_position_valuations,
     get_valuation_history,
@@ -378,6 +379,57 @@ display_valuations = [
 ]
 
 if display_valuations:
+    st.subheader("국내/해외 주식 비중")
+    ticker_markets: dict[str, str | None] = {}
+    tickers = {val.ticker for val in display_valuations if val.ticker}
+    if tickers:
+        with db_session() as session:
+            rows = session.execute(
+                select(TickerMaster.ticker, TickerMaster.market).where(
+                    TickerMaster.ticker.in_(tickers)
+                )
+            ).all()
+            ticker_markets = {row.ticker: row.market for row in rows}
+
+    market_groups = []
+    total_value = 0.0
+    for val in display_valuations:
+        if val.market_value_krw is None or val.market_value_krw <= 0:
+            continue
+        declared_market = ticker_markets.get(val.ticker)
+        market_code = infer_market_from_ticker(val.ticker, normalize_market_code(declared_market))
+        group = "국내" if market_code == "KR" else "해외"
+        market_groups.append((group, val.ticker, val.market_value_krw))
+        total_value += val.market_value_krw
+
+    if market_groups and total_value > 0:
+        group_df = pd.DataFrame(market_groups, columns=["구분", "티커", "평가액"])
+        summary_df = (
+            group_df.groupby("구분", as_index=False)
+            .agg(종목수=("티커", "nunique"), 평가액=("평가액", "sum"))
+        )
+        summary_df["비중"] = summary_df["평가액"] / total_value
+
+        pie = alt.Chart(summary_df).mark_arc(innerRadius=40, thetaOffset=-1.5708).encode(
+            theta=alt.Theta("평가액:Q", stack=True, sort="descending"),
+            color=alt.Color("구분:N", title="구분"),
+            order=alt.Order("평가액:Q", sort="descending"),
+            tooltip=[
+                alt.Tooltip("구분:N", title="구분"),
+                alt.Tooltip("평가액:Q", title="평가액", format=",.0f"),
+                alt.Tooltip("비중:Q", title="비중", format=".1%"),
+                alt.Tooltip("종목수:Q", title="종목 수"),
+            ],
+        ).properties(height=360)
+        st.altair_chart(pie, use_container_width=True)
+
+        summary_df["평가액"] = summary_df["평가액"].map(lambda v: f"{v:,.0f}원")
+        summary_df["비중"] = summary_df["비중"].map(lambda v: f"{v:.1%}")
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("국내/해외 비중을 계산할 평가 데이터가 없습니다.")
+
+if display_valuations:
     df = pd.DataFrame(
         [
             {
@@ -399,6 +451,7 @@ if display_valuations:
             for val in display_valuations
         ]
     )
+    df = df.sort_values(by="평가손익%", ascending=False, na_position="last")
 
     def _gain_style(value):
         if pd.isna(value):
