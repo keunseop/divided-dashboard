@@ -355,20 +355,20 @@ if display_valuations:
     df = pd.DataFrame(
         [
             {
-                "Symbol": f"{val.ticker} ({val.name_ko})" if val.name_ko else val.ticker,
-                "Account": val.account_type.value,
-                "Quantity": val.quantity,
-                "Avg Buy Price (KRW)": val.avg_buy_price_krw,
-                "Total Cost (KRW)": val.total_cost_krw,
-                "Realized PnL (KRW)": val.realized_pnl_krw,
-                "Price": val.price,
-                "Currency": val.price_currency,
-                "Price (KRW)": val.price_krw,
-                "Market Value (KRW)": val.market_value_krw,
-                "Gain/Loss (KRW)": val.gain_loss_krw,
-                "Gain/Loss %": val.gain_loss_pct,
-                "Price As Of": val.price_as_of,
-                "Source": val.price_source,
+                "종목": f"{val.ticker} ({val.name_ko})" if val.name_ko else val.ticker,
+                "계좌": val.account_type.value,
+                "수량": val.quantity,
+                "평균단가(KRW)": val.avg_buy_price_krw,
+                "총투자원금(KRW)": val.total_cost_krw,
+                "실현손익(KRW)": val.realized_pnl_krw,
+                "현재가": val.price,
+                "통화": val.price_currency,
+                "현재가(KRW)": val.price_krw,
+                "평가액(KRW)": val.market_value_krw,
+                "평가손익(KRW)": val.gain_loss_krw,
+                "평가손익%": val.gain_loss_pct,
+                "가격기준시각": val.price_as_of,
+                "소스": val.price_source,
             }
             for val in display_valuations
         ]
@@ -384,19 +384,19 @@ if display_valuations:
         return ""
 
     formatters = {
-        "Quantity": "{:,.0f}",
-        "Avg Buy Price (KRW)": "{:,.0f}",
-        "Total Cost (KRW)": "{:,.0f}",
-        "Realized PnL (KRW)": "{:,.0f}",
-        "Price": "{:,.0f}",
-        "Price (KRW)": "{:,.0f}",
-        "Market Value (KRW)": "{:,.0f}",
-        "Gain/Loss (KRW)": "{:,.0f}",
-        "Gain/Loss %": "{:,.2f}%",
+        "수량": "{:,.0f}",
+        "평균단가(KRW)": "{:,.0f}",
+        "총투자원금(KRW)": "{:,.0f}",
+        "실현손익(KRW)": "{:,.0f}",
+        "현재가": "{:,.0f}",
+        "현재가(KRW)": "{:,.0f}",
+        "평가액(KRW)": "{:,.0f}",
+        "평가손익(KRW)": "{:,.0f}",
+        "평가손익%": "{:,.2f}%",
     }
     styled = (
         df.style.format(formatters, na_rep="-")
-        .applymap(_gain_style, subset=["Gain/Loss (KRW)", "Gain/Loss %"])
+        .applymap(_gain_style, subset=["평가손익(KRW)", "평가손익%"])
         .hide(axis="index")
     )
     st.dataframe(styled, use_container_width=True)
