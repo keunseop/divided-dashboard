@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="보유 종목 배당 추이 페이지 개선">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="대시 보드 상단 누적 배당금 표시 및 정리">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -144,38 +144,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1766421177748</updated>
-    </task>
-    <task id="LOCAL-00001" summary="프로젝트 초기 구성">
-      <option name="closed" value="true" />
-      <created>1766590071623</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1766590071623</updated>
-    </task>
-    <task id="LOCAL-00002" summary="ticker 추가 완료">
-      <option name="closed" value="true" />
-      <created>1766593379167</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1766593379167</updated>
-    </task>
-    <task id="LOCAL-00003" summary="원화 표시 완료, missing ticker 추가 기능 완료">
-      <option name="closed" value="true" />
-      <created>1766594132794</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1766594132794</updated>
-    </task>
-    <task id="LOCAL-00004" summary="workspace 파일 추가">
-      <option name="closed" value="true" />
-      <created>1766594612932</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1766594612932</updated>
     </task>
     <task id="LOCAL-00005" summary="ignore">
       <option name="closed" value="true" />
@@ -521,16 +489,58 @@
       <option name="project" value="LOCAL" />
       <updated>1769183945301</updated>
     </task>
-    <option name="localTasksCounter" value="48" />
+    <task id="LOCAL-00048" summary="대시보드 평가손익 부분 디자인 개선">
+      <option name="closed" value="true" />
+      <created>1769186565134</created>
+      <option name="number" value="00048" />
+      <option name="presentableId" value="LOCAL-00048" />
+      <option name="project" value="LOCAL" />
+      <updated>1769186565134</updated>
+    </task>
+    <task id="LOCAL-00049" summary="대시보드 평가손익 부분 디자인 개선2">
+      <option name="closed" value="true" />
+      <created>1769186788827</created>
+      <option name="number" value="00049" />
+      <option name="presentableId" value="LOCAL-00049" />
+      <option name="project" value="LOCAL" />
+      <updated>1769186788827</updated>
+    </task>
+    <task id="LOCAL-00050" summary="평가 손익 표시 개선">
+      <option name="closed" value="true" />
+      <created>1769187020199</created>
+      <option name="number" value="00050" />
+      <option name="presentableId" value="LOCAL-00050" />
+      <option name="project" value="LOCAL" />
+      <updated>1769187020200</updated>
+    </task>
+    <task id="LOCAL-00051" summary="대시보드 &gt; 국내 해외 비중 표시&#10;평가 손익% 우선 정렬">
+      <option name="closed" value="true" />
+      <created>1769187633033</created>
+      <option name="number" value="00051" />
+      <option name="presentableId" value="LOCAL-00051" />
+      <option name="project" value="LOCAL" />
+      <updated>1769187633033</updated>
+    </task>
+    <task id="LOCAL-00052" summary="자산 추이 정리">
+      <option name="closed" value="true" />
+      <created>1769189297154</created>
+      <option name="number" value="00052" />
+      <option name="presentableId" value="LOCAL-00052" />
+      <option name="project" value="LOCAL" />
+      <updated>1769189297154</updated>
+    </task>
+    <task id="LOCAL-00053" summary="대시 보드 상단 누적 배당금 표시 및 정리">
+      <option name="closed" value="true" />
+      <created>1769189728302</created>
+      <option name="number" value="00053" />
+      <option name="presentableId" value="LOCAL-00053" />
+      <option name="project" value="LOCAL" />
+      <updated>1769189728302</updated>
+    </task>
+    <option name="localTasksCounter" value="54" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="좌측 메뉴 구성 변경" />
-    <MESSAGE value="내 포지션 부분에 password 추가" />
-    <MESSAGE value="sql export 기능 추가, 수동 매수/매도시 현금 포지션 업데이트" />
-    <MESSAGE value="포트폴리오 수정 기능 보완" />
-    <MESSAGE value="pykis 적용 및 가격 동시 요청 처리" />
-    <MESSAGE value="가격 조회 방식 limit 처리, 종목 검색 차트 수정" />
     <MESSAGE value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
     <MESSAGE value="비밀번호 입력 일단 비활성화" />
     <MESSAGE value="숫자 표기법 변경" />
@@ -550,7 +560,13 @@
     <MESSAGE value="배당 내역 표시" />
     <MESSAGE value="pie chart 추가" />
     <MESSAGE value="보유 종목 배당 추이 페이지 개선" />
-    <option name="LAST_COMMIT_MESSAGE" value="보유 종목 배당 추이 페이지 개선" />
+    <MESSAGE value="대시보드 평가손익 부분 디자인 개선" />
+    <MESSAGE value="대시보드 평가손익 부분 디자인 개선2" />
+    <MESSAGE value="평가 손익 표시 개선" />
+    <MESSAGE value="대시보드 &gt; 국내 해외 비중 표시&#10;평가 손익% 우선 정렬" />
+    <MESSAGE value="자산 추이 정리" />
+    <MESSAGE value="대시 보드 상단 누적 배당금 표시 및 정리" />
+    <option name="LAST_COMMIT_MESSAGE" value="대시 보드 상단 누적 배당금 표시 및 정리" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
