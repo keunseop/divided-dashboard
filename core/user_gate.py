@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
-
 import streamlit as st
+
+from core.secrets import SecretUtil
 
 _USER_STATE_KEY = "user_unlocked"
 _USER_FORM_KEY = "user_gate_form"
@@ -16,23 +16,11 @@ def _trigger_rerun() -> None:
 
 
 def _get_user_password() -> str | None:
-    secret = st.secrets.get("USER_PASSWORD") if hasattr(st, "secrets") else None
-    if isinstance(secret, str) and secret.strip():
-        return secret.strip()
-    env_value = os.environ.get("USER_PASSWORD")
-    if env_value and env_value.strip():
-        return env_value.strip()
-    return None
+    return SecretUtil.get("USER_PASSWORD")
 
 
 def _is_user_gate_enabled() -> bool:
-    secret = st.secrets.get(_USER_GATE_ENV) if hasattr(st, "secrets") else None
-    if isinstance(secret, bool):
-        return secret
-    if isinstance(secret, str):
-        return secret.strip().lower() in {"1", "true", "yes", "y", "on"}
-    env_value = os.environ.get(_USER_GATE_ENV, "")
-    return env_value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return SecretUtil.get_bool(_USER_GATE_ENV)
 
 
 def is_user_unlocked() -> bool:

@@ -49,3 +49,22 @@ def _load_toml_secrets() -> dict[str, Any]:
 def _get_toml_secret(name: str) -> Any:
     data = _load_toml_secrets()
     return data.get(name)
+
+
+def get_bool_secret(name: str, default: bool = False) -> bool:
+    value = get_secret(name)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return default
+
+
+class SecretUtil:
+    @staticmethod
+    def get(name: str) -> str | None:
+        return get_secret(name)
+
+    @staticmethod
+    def get_bool(name: str, default: bool = False) -> bool:
+        return get_bool_secret(name, default=default)

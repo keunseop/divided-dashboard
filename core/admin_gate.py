@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
-
 import streamlit as st
+
+from core.secrets import SecretUtil
 
 _ADMIN_STATE_KEY = "admin_unlocked"
 _ADMIN_FORM_KEY = "admin_gate_form"
@@ -18,23 +18,11 @@ def _trigger_rerun() -> None:
 
 def _get_admin_password() -> str | None:
     """Fetch the admin password from Streamlit secrets or environment."""
-    secret = st.secrets.get("ADMIN_PASSWORD") if hasattr(st, "secrets") else None
-    if isinstance(secret, str) and secret.strip():
-        return secret.strip()
-    env_value = os.environ.get("ADMIN_PASSWORD")
-    if env_value and env_value.strip():
-        return env_value.strip()
-    return None
+    return SecretUtil.get("ADMIN_PASSWORD")
 
 
 def _is_admin_gate_enabled() -> bool:
-    secret = st.secrets.get(_ADMIN_GATE_ENV) if hasattr(st, "secrets") else None
-    if isinstance(secret, bool):
-        return secret
-    if isinstance(secret, str):
-        return secret.strip().lower() in {"1", "true", "yes", "y", "on"}
-    env_value = os.environ.get(_ADMIN_GATE_ENV, "")
-    return env_value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return SecretUtil.get_bool(_ADMIN_GATE_ENV)
 
 
 def is_admin_unlocked() -> bool:
