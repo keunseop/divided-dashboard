@@ -427,15 +427,19 @@ with st.expander("수동 거래 입력", expanded=False):
     st.subheader("수동 거래 입력 (BUY/SELL)")
     st.write("급한 거래는 아래 폼에서 직접 입력해 주세요. 외화 거래는 환율을 함께 입력하면 KRW 환산 금액이 자동 계산됩니다.")
 
-    manual_ticker = st.text_input("티커 입력", placeholder="예: 005930", key="manual_trade_input")
+    manual_ticker = st.text_input("종목명/티커 입력", placeholder="예: 삼성전자 또는 005930", key="manual_trade_input")
     manual_candidate = render_ticker_autocomplete(
         query=manual_ticker,
-        label="티커 자동완성",
+        label="수동 검색 (국내 종목)",
         key="manual_trade_autocomplete",
-        help_text="Ticker Master에 등록된 종목을 선택하세요.",
+        help_text="국내 종목명을 입력하면 추천 목록이 표시됩니다.",
         limit=30,
         show_input=False,
+        clear_on_empty_query=True,
+        prefer_searchbox=False,
     )
+    if manual_ticker.strip() == "":
+        manual_candidate = None
     resolved_ticker = normalize_ticker(manual_ticker)
     if resolved_ticker and not manual_candidate and _is_complete_ticker(resolved_ticker):
         with db_session() as session:

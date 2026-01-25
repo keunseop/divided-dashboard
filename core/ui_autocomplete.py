@@ -34,13 +34,12 @@ def _store_suggestions(key: str, suggestions: list[TickerSuggestion]) -> None:
 
 def _pick_suggestion_from_cache(key: str, selection: str | None) -> TickerSuggestion | None:
     entry = _cache_entry(key)
-    target_selection = selection if selection else entry.get("selection")
-    if not target_selection:
+    if not selection:
+        entry["selection"] = None
         return None
 
-    suggestion = entry["options"].get(target_selection)
-    if selection:
-        entry["selection"] = target_selection if suggestion else None
+    suggestion = entry["options"].get(selection)
+    entry["selection"] = selection if suggestion else None
     return suggestion
 
 
@@ -52,6 +51,8 @@ def render_ticker_autocomplete(
     help_text: str | None = None,
     limit: int = 20,
     show_input: bool = True,
+    clear_on_empty_query: bool = True,
+    prefer_searchbox: bool = True,
 ) -> TickerSuggestion | None:
     """Render an autocomplete widget for ticker suggestions.
 
@@ -59,7 +60,7 @@ def render_ticker_autocomplete(
     it falls back to a static selectbox fed by the current query string.
     """
 
-    if st_searchbox is not None:
+    if st_searchbox is not None and prefer_searchbox:
         with st.container():
             st.write(label)
             if help_text:
@@ -88,6 +89,10 @@ def render_ticker_autocomplete(
             help=help_text,
         )
         stripped = fallback_value.strip()
+    if clear_on_empty_query and not stripped:
+        entry = _cache_entry(key)
+        entry["selection"] = None
+        return None
     if not stripped:
         return None
 
