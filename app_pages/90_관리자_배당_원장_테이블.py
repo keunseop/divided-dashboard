@@ -68,40 +68,40 @@ if st.button("archived 토글") and row_id:
             obj.archived = not obj.archived
             st.success(f"{row_id}: archived={obj.archived}")
 
-st.divider()
-st.subheader("DB 백업 다운로드(임시)")
-st.caption("배포 환경의 최신 DB 파일을 로컬로 내려받기 위한 임시 기능입니다.")
-
-def _backup_sqlite_db(db_path: Path) -> Path:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_path = Path(tempfile.gettempdir()) / f"dividends_backup_{timestamp}.sqlite3"
-    with sqlite3.connect(db_path.as_posix()) as src:
-        with sqlite3.connect(backup_path.as_posix()) as dst:
-            src.backup(dst)
-    return backup_path
-
-
-if DB_PATH is None:
-    st.warning("DIVIDENDS_DB_URL이 설정되어 있어 로컬 SQLite 파일 경로를 확인할 수 없습니다.")
-    st.write("현재 DB_URL:", DB_URL)
-else:
-    st.write("현재 DB 경로:", str(DB_PATH))
-    if st.button("백업 파일 생성"):
-        backup_path = _backup_sqlite_db(DB_PATH)
-        st.session_state["db_backup_path"] = str(backup_path)
-        st.success(f"백업 생성 완료: {backup_path.name}")
-
-    backup_path_str = st.session_state.get("db_backup_path")
-    if backup_path_str:
-        backup_path = Path(backup_path_str)
-        if backup_path.exists():
-            with backup_path.open("rb") as f:
-                st.download_button(
-                    label="백업 DB 다운로드",
-                    data=f,
-                    file_name=backup_path.name,
-                    mime="application/x-sqlite3",
-                )
+# st.divider()
+# st.subheader("DB 백업 다운로드(임시)")
+# st.caption("배포 환경의 최신 DB 파일을 로컬로 내려받기 위한 임시 기능입니다.")
+#
+# def _backup_sqlite_db(db_path: Path) -> Path:
+#     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#     backup_path = Path(tempfile.gettempdir()) / f"dividends_backup_{timestamp}.sqlite3"
+#     with sqlite3.connect(db_path.as_posix()) as src:
+#         with sqlite3.connect(backup_path.as_posix()) as dst:
+#             src.backup(dst)
+#     return backup_path
+#
+#
+# if DB_PATH is None:
+#     st.warning("DIVIDENDS_DB_URL이 설정되어 있어 로컬 SQLite 파일 경로를 확인할 수 없습니다.")
+#     st.write("현재 DB_URL:", DB_URL)
+# else:
+#     st.write("현재 DB 경로:", str(DB_PATH))
+#     if st.button("백업 파일 생성"):
+#         backup_path = _backup_sqlite_db(DB_PATH)
+#         st.session_state["db_backup_path"] = str(backup_path)
+#         st.success(f"백업 생성 완료: {backup_path.name}")
+#
+#     backup_path_str = st.session_state.get("db_backup_path")
+#     if backup_path_str:
+#         backup_path = Path(backup_path_str)
+#         if backup_path.exists():
+#             with backup_path.open("rb") as f:
+#                 st.download_button(
+#                     label="백업 DB 다운로드",
+#                     data=f,
+#                     file_name=backup_path.name,
+#                     mime="application/x-sqlite3",
+#                 )
 
 st.divider()
 st.subheader("DB 삭제(주의)")

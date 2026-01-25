@@ -80,6 +80,20 @@ SessionLocal = sessionmaker(
     expire_on_commit=False,
 )
 
+def _ensure_schema() -> None:
+    try:
+        from core.models import Base
+    except Exception as exc:
+        print(f"[core.db] Failed to import models for schema init: {exc}", flush=True)
+        return
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        print(f"[core.db] Failed to ensure schema: {exc}", flush=True)
+
+
+_ensure_schema()
+
 
 @contextmanager
 def db_session():

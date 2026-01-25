@@ -646,24 +646,24 @@ with st.expander("CSV 업로드", expanded=not (has_any_positions or has_any_lot
         st.caption("이미 거래/포지션이 있다면 중복 입력에 주의해 주세요.")
     _render_csv_importers()
 
-st.divider()
-st.header("서버 DB 내보내기")
-if DB_PATH is None:
-    st.warning("현재 DB가 SQLite 파일 경로로 설정되지 않아 내보내기를 지원하지 않습니다.")
-else:
-    dump_key = "db_sql_dump"
-    if st.button("SQL 내보내기 준비", key="db_export_prepare"):
-        try:
-            st.session_state[dump_key] = _dump_sqlite_db(DB_PATH)
-            st.success("SQL 덤프를 생성했습니다. 다운로드 버튼을 눌러 저장하세요.")
-        except Exception as exc:
-            st.error(f"SQL 덤프 생성 실패: {exc}")
-
-    dump_payload = st.session_state.get(dump_key)
-    if dump_payload:
-        st.download_button(
-            "SQL 파일 다운로드",
-            data=dump_payload,
-            file_name=f"dividends_export_{date.today().isoformat()}.sql",
-            mime="application/sql",
-        )
+# st.divider()
+# st.header("서버 DB 내보내기")
+# if DB_PATH is None:
+#     st.warning("현재 DB가 SQLite 파일 경로로 설정되지 않아 내보내기를 지원하지 않습니다.")
+# else:
+#     dump_key = "db_sql_dump"
+#     if st.button("SQL 내보내기 준비", key="db_export_prepare"):
+#         try:
+#             st.session_state[dump_key] = _dump_sqlite_db(DB_PATH)
+#             st.success("SQL 덤프를 생성했습니다. 다운로드 버튼을 눌러 저장하세요.")
+#         except Exception as exc:
+#             st.error(f"SQL 덤프 생성 실패: {exc}")
+#
+#     dump_payload = st.session_state.get(dump_key)
+#     if dump_payload:
+#         st.download_button(
+#             "SQL 파일 다운로드",
+#             data=dump_payload,
+#             file_name=f"dividends_export_{date.today().isoformat()}.sql",
+#             mime="application/sql",
+#         )
