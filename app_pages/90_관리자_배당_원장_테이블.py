@@ -102,3 +102,20 @@ else:
                     file_name=backup_path.name,
                     mime="application/x-sqlite3",
                 )
+
+st.divider()
+st.subheader("DB 삭제(주의)")
+st.caption("영구 디스크의 DB 파일을 삭제합니다. 삭제 후 재시작 시 initial_data가 있으면 최초 1회 복사됩니다.")
+
+if DB_PATH is None:
+    st.warning("DIVIDENDS_DB_URL이 설정되어 있어 로컬 SQLite 파일을 삭제할 수 없습니다.")
+else:
+    st.write("삭제 대상 DB:", str(DB_PATH))
+    confirm_delete = st.checkbox("정말 삭제할 것을 확인했습니다.")
+    confirm_restart = st.checkbox("삭제 후 앱을 재시작해야 함을 이해했습니다.")
+    if st.button("DB 파일 삭제") and confirm_delete and confirm_restart:
+        if DB_PATH.exists():
+            DB_PATH.unlink()
+            st.success("DB 파일 삭제 완료. 앱을 재시작해 주세요.")
+        else:
+            st.info("DB 파일이 이미 존재하지 않습니다.")

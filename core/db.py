@@ -12,6 +12,7 @@ from core.secrets import get_secret
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SEED_DB_PATH = PROJECT_ROOT / "dividends-seed.sqlite3"
 LEGACY_DB_PATH = PROJECT_ROOT / "dividends.sqlite3"
+INITIAL_DB_PATH = PROJECT_ROOT / "initial_data" / "dividends.sqlite3"
 DEFAULT_DB_PATH = PROJECT_ROOT / "var" / "dividends.sqlite3"
 HOME_DB_PATH = Path.home() / ".dividend-dashboard" / "dividends.sqlite3"
 
@@ -39,7 +40,10 @@ def _ensure_sqlite_db(path: Path) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
-            if LEGACY_DB_PATH.exists():
+            if INITIAL_DB_PATH.exists():
+                shutil.copy2(INITIAL_DB_PATH, path)
+                print("[core.db] Initial SQLite DB copied to persistent disk", flush=True)
+            elif LEGACY_DB_PATH.exists():
                 shutil.copy2(LEGACY_DB_PATH, path)
             elif SEED_DB_PATH.exists():
                 shutil.copy2(SEED_DB_PATH, path)
