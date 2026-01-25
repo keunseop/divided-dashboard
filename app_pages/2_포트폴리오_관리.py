@@ -355,6 +355,74 @@ with st.expander("거래 내역", expanded=False):
             },
         )
 
+        st.divider()
+        st.subheader("거래 삭제(주의)")
+        st.caption("선택한 거래를 삭제하고 현금/포지션 영향을 되돌립니다.")
+
+        option_map = {}
+        for lot in trades:
+            label = (
+                f"{lot.id} | {lot.trade_date} | {lot.ticker} | "
+                f"{lot.account_type.value} | {lot.side.value} | {lot.quantity:,.0f}"
+            )
+            option_map[label] = lot.id
+
+        selected_label = st.selectbox(
+            "삭제할 거래 선택",
+            options=list(option_map.keys()),
+            key="trade_delete_select",
+        )
+        confirm_delete = st.checkbox("정말 삭제할 것을 확인했습니다.", key="trade_delete_confirm")
+        if st.button("선택 거래 삭제", key="trade_delete_button") and confirm_delete:
+            try:
+                with db_session() as session:
+                    lot = session.execute(
+                        select(HoldingLot).where(HoldingLot.id == option_map[selected_label])
+                    ).scalar_one_or_none()
+                    if lot is None:
+                        st.error("해당 거래를 찾을 수 없습니다.")
+                    else:
+                        amount_krw = lot.amount_krw
+                        if amount_krw is None:
+                            amount_krw = (lot.price_krw or 0.0) * lot.quantity
+                        if amount_krw is None:
+                            raise ValueError("거래 금액(KRW)을 계산할 수 없습니다.")
+                        cash_delta = amount_krw if lot.side == TradeSide.SELL else -amount_krw
+                        reverse_delta = -cash_delta
+                        target_date = lot.trade_date
+                        latest_account_cash = get_latest_cash_snapshot(
+                            session,
+                            account_type=lot.account_type,
+                        )
+                        latest_all_cash = get_latest_cash_snapshot(
+                            session,
+                            account_type=AccountType.ALL,
+                        )
+                        for latest_cash in (latest_account_cash, latest_all_cash):
+                            if latest_cash and latest_cash.snapshot_date > target_date:
+                                target_date = latest_cash.snapshot_date
+
+                        account_result = apply_cash_delta(
+                            session,
+                            account_type=lot.account_type,
+                            snapshot_date=target_date,
+                            delta_krw=reverse_delta,
+                            note=f"revert trade delete {lot.side.value} {lot.ticker}",
+                        )
+                        all_result = apply_cash_delta(
+                            session,
+                            account_type=AccountType.ALL,
+                            snapshot_date=target_date,
+                            delta_krw=reverse_delta,
+                            note=f"revert trade delete {lot.side.value} {lot.ticker}",
+                        )
+                        if account_result is None or all_result is None:
+                            st.warning("현금 스냅샷이 없어 일부 현금 변경이 반영되지 않았습니다.")
+                        session.delete(lot)
+                        st.success("거래를 삭제했습니다. 화면을 새로고침해 주세요.")
+            except Exception as exc:
+                st.error(f"거래 삭제 실패: {exc}")
+
 with st.expander("수동 거래 입력", expanded=False):
     st.subheader("수동 거래 입력 (BUY/SELL)")
     st.write("급한 거래는 아래 폼에서 직접 입력해 주세요. 외화 거래는 환율을 함께 입력하면 KRW 환산 금액이 자동 계산됩니다.")
