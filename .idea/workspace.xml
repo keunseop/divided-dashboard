@@ -4,8 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="대시 보드 상단 누적 배당금 표시 및 정리">
+    <list default="true" id="e48e0a63-7018-4d6d-83a0-d994f9998a32" name="Changes" comment="거래 내역 자동완성 기능 추가">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/1_대시보드.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/1_대시보드.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/2_포트폴리오_관리.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/3_배당_내역_가져오기.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/4_보유_종목_배당_추이.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app_pages/5_종목_검색.py" beforeDir="false" afterPath="$PROJECT_DIR$/app_pages/5_종목_검색.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/cash_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/cash_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/holdings_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/holdings_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/importer.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/importer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/portfolio_importer.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/portfolio_importer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/ticker_importer.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ticker_importer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/ticker_lookup.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/ticker_lookup.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/valuation_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/valuation_service.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,17 +56,24 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.check_dividend_metrics.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_market_data.executor&quot;: &quot;Run&quot;,
-    &quot;Python.update_kr_price_cache.executor&quot;: &quot;Debug&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.check_dividend_metrics.executor": "Run",
+    "Python.test_market_data.executor": "Run",
+    "Python.update_kr_price_cache.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "C:/Users/1111/PycharmProjects/divided-dashboard/secrets",
+    "settings.editor.selected.configurable": "terminal"
   }
-}</component>
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\1111\PycharmProjects\divided-dashboard\secrets" />
+      <recent name="C:\Users\1111\PycharmProjects\divided-dashboard\initial_data" />
+    </key>
+  </component>
   <component name="RunManager" selected="Python.update_kr_price_cache">
     <configuration name="check_dividend_metrics" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="divided-dashboard" />
@@ -144,62 +164,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1766421177748</updated>
-    </task>
-    <task id="LOCAL-00005" summary="ignore">
-      <option name="closed" value="true" />
-      <created>1766594882307</created>
-      <option name="number" value="00005" />
-      <option name="presentableId" value="LOCAL-00005" />
-      <option name="project" value="LOCAL" />
-      <updated>1766594882307</updated>
-    </task>
-    <task id="LOCAL-00006" summary="알림톡 파서 추가">
-      <option name="closed" value="true" />
-      <created>1766630120967</created>
-      <option name="number" value="00006" />
-      <option name="presentableId" value="LOCAL-00006" />
-      <option name="project" value="LOCAL" />
-      <updated>1766630120967</updated>
-    </task>
-    <task id="LOCAL-00007" summary="환율 조회 api 변경">
-      <option name="closed" value="true" />
-      <created>1766643391116</created>
-      <option name="number" value="00007" />
-      <option name="presentableId" value="LOCAL-00007" />
-      <option name="project" value="LOCAL" />
-      <updated>1766643391116</updated>
-    </task>
-    <task id="LOCAL-00008" summary="배당 조회 api 추가, DB 캐시 기능 추가 등">
-      <option name="closed" value="true" />
-      <created>1766737425210</created>
-      <option name="number" value="00008" />
-      <option name="presentableId" value="LOCAL-00008" />
-      <option name="project" value="LOCAL" />
-      <updated>1766737425210</updated>
-    </task>
-    <task id="LOCAL-00009" summary="현재 포지션 추가 기능">
-      <option name="closed" value="true" />
-      <created>1766746813098</created>
-      <option name="number" value="00009" />
-      <option name="presentableId" value="LOCAL-00009" />
-      <option name="project" value="LOCAL" />
-      <updated>1766746813098</updated>
-    </task>
-    <task id="LOCAL-00010" summary="현재 포지션 추가 기능">
-      <option name="closed" value="true" />
-      <created>1766749339605</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1766749339605</updated>
-    </task>
-    <task id="LOCAL-00011" summary="대시보드에 현재가 및 평가손익 추가">
-      <option name="closed" value="true" />
-      <created>1766750552395</created>
-      <option name="number" value="00011" />
-      <option name="presentableId" value="LOCAL-00011" />
-      <option name="project" value="LOCAL" />
-      <updated>1766750552395</updated>
     </task>
     <task id="LOCAL-00012" summary="페이지명 한글화 및 관리자 페이지로 분리">
       <option name="closed" value="true" />
@@ -537,17 +501,117 @@
       <option name="project" value="LOCAL" />
       <updated>1769189728302</updated>
     </task>
-    <option name="localTasksCounter" value="54" />
+    <task id="LOCAL-00054" summary="secret 파일 접근 전에 환경변수 먼저 확인">
+      <option name="closed" value="true" />
+      <created>1769277344550</created>
+      <option name="number" value="00054" />
+      <option name="presentableId" value="LOCAL-00054" />
+      <option name="project" value="LOCAL" />
+      <updated>1769277344550</updated>
+    </task>
+    <task id="LOCAL-00055" summary="secret 파일 접근 전에 환경변수 접근토록 (전체수정)">
+      <option name="closed" value="true" />
+      <created>1769278033705</created>
+      <option name="number" value="00055" />
+      <option name="presentableId" value="LOCAL-00055" />
+      <option name="project" value="LOCAL" />
+      <updated>1769278033705</updated>
+    </task>
+    <task id="LOCAL-00056" summary="db 파일 다운로드 기능 임시 추가">
+      <option name="closed" value="true" />
+      <created>1769356825964</created>
+      <option name="number" value="00056" />
+      <option name="presentableId" value="LOCAL-00056" />
+      <option name="project" value="LOCAL" />
+      <updated>1769356825964</updated>
+    </task>
+    <task id="LOCAL-00057" summary="초기 DB 추가 및 삭제 메뉴 추가">
+      <option name="closed" value="true" />
+      <created>1769357580516</created>
+      <option name="number" value="00057" />
+      <option name="presentableId" value="LOCAL-00057" />
+      <option name="project" value="LOCAL" />
+      <updated>1769357580516</updated>
+    </task>
+    <task id="LOCAL-00058" summary="DB 초기 스키마 자동 생성 처리">
+      <option name="closed" value="true" />
+      <created>1769358202282</created>
+      <option name="number" value="00058" />
+      <option name="presentableId" value="LOCAL-00058" />
+      <option name="project" value="LOCAL" />
+      <updated>1769358202282</updated>
+    </task>
+    <task id="LOCAL-00059" summary="거래 내역 삭제 기능 추가">
+      <option name="closed" value="true" />
+      <created>1769361095243</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1769361095243</updated>
+    </task>
+    <task id="LOCAL-00060" summary="거래 내역 자동완성 기능 추가">
+      <option name="closed" value="true" />
+      <created>1769361854100</created>
+      <option name="number" value="00060" />
+      <option name="presentableId" value="LOCAL-00060" />
+      <option name="project" value="LOCAL" />
+      <updated>1769361854100</updated>
+    </task>
+    <option name="localTasksCounter" value="61" />
     <servers />
   </component>
+  <component name="Vcs.Log.History.Properties">
+    <option name="COLUMN_ID_ORDER">
+      <list>
+        <option value="Default.Root" />
+        <option value="Default.Author" />
+        <option value="Default.Date" />
+        <option value="Default.Subject" />
+      </list>
+    </option>
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="OPEN_GENERIC_TABS">
+      <map>
+        <entry key="2419cb6e-48a6-4cd8-b8e2-59080cc4b3df" value="TOOL_WINDOW" />
+      </map>
+    </option>
+    <option name="TAB_STATES">
+      <map>
+        <entry key="2419cb6e-48a6-4cd8-b8e2-59080cc4b3df">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="HEAD" />
+                      </list>
+                    </value>
+                  </entry>
+                  <entry key="structure">
+                    <value>
+                      <list>
+                        <option value="dir:C:/Users/1111/PycharmProjects/divided-dashboard/var" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+              <option name="SHOW_ONLY_AFFECTED_CHANGES" value="true" />
+            </State>
+          </value>
+        </entry>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="배당금 입력시 현금에 반영, 현금 스냅샷 수정 및 입출금 기능 포트폴리오 관리 메뉴로 이동" />
-    <MESSAGE value="비밀번호 입력 일단 비활성화" />
-    <MESSAGE value="숫자 표기법 변경" />
-    <MESSAGE value="국내 ETF 조회 실패 케이스 수정" />
-    <MESSAGE value="pykis 적용, ETF 조회 안되는 문제 수정" />
-    <MESSAGE value="pykis 의존성 추가" />
-    <MESSAGE value="pykis 디버그 추가" />
     <MESSAGE value="pykis import 수정" />
     <MESSAGE value="pykis 사용하도록 수정" />
     <MESSAGE value="pykis 인증 수정" />
@@ -566,14 +630,21 @@
     <MESSAGE value="대시보드 &gt; 국내 해외 비중 표시&#10;평가 손익% 우선 정렬" />
     <MESSAGE value="자산 추이 정리" />
     <MESSAGE value="대시 보드 상단 누적 배당금 표시 및 정리" />
-    <option name="LAST_COMMIT_MESSAGE" value="대시 보드 상단 누적 배당금 표시 및 정리" />
+    <MESSAGE value="secret 파일 접근 전에 환경변수 먼저 확인" />
+    <MESSAGE value="secret 파일 접근 전에 환경변수 접근토록 (전체수정)" />
+    <MESSAGE value="db 파일 다운로드 기능 임시 추가" />
+    <MESSAGE value="초기 DB 추가 및 삭제 메뉴 추가" />
+    <MESSAGE value="DB 초기 스키마 자동 생성 처리" />
+    <MESSAGE value="거래 내역 삭제 기능 추가" />
+    <MESSAGE value="거래 내역 자동완성 기능 추가" />
+    <option name="LAST_COMMIT_MESSAGE" value="거래 내역 자동완성 기능 추가" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/core/ticker_lookup.py</url>
-          <line>24</line>
+          <line>25</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>

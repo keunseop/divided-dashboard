@@ -3,11 +3,12 @@ from __future__ import annotations
 import altair as alt
 import pandas as pd
 import streamlit as st
-from sqlalchemy import func, select
 
 from core.db import db_session
+from core.dividend_reader import list_dividend_events
 from core.holdings_service import get_positions
-from core.models import AccountType, DividendEvent, TickerMaster
+from core.models import AccountType
+from core.ticker_reader import get_ticker_meta_map
 from core.user_gate import require_user
 
 
@@ -26,53 +27,36 @@ def _load_monthly_dividends(
         return pd.DataFrame()
 
     with db_session() as session:
-        stmt = (
-            select(
-                DividendEvent.ticker,
-                TickerMaster.name_ko,
-                DividendEvent.currency,
-                DividendEvent.year,
-                DividendEvent.month,
-                func.sum(DividendEvent.gross_dividend).label("gross_dividend"),
-                func.sum(DividendEvent.net_dividend).label("net_dividend"),
-                func.sum(DividendEvent.krw_gross).label("krw_gross"),
-                func.sum(DividendEvent.krw_net).label("krw_net"),
-                func.count(DividendEvent.id).label("event_count"),
-            )
-            .join(TickerMaster, TickerMaster.ticker == DividendEvent.ticker, isouter=True)
-            .where(DividendEvent.archived == False)
-            .where(DividendEvent.ticker.in_(tickers))
-            .group_by(
-                DividendEvent.ticker,
-                TickerMaster.name_ko,
-                DividendEvent.currency,
-                DividendEvent.year,
-                DividendEvent.month,
-            )
+        rows = list_dividend_events(
+            session,
+            account_type=account_type,
+            archived=False,
+            tickers=tickers,
         )
-
-        if account_type is not None:
-            stmt = stmt.where(DividendEvent.account_type == account_type)
-
-        rows = session.execute(stmt).all()
+        meta_map = get_ticker_meta_map(session, tickers=tickers)
 
     if not rows:
         return pd.DataFrame()
 
-    df = pd.DataFrame(
-        rows,
-        columns=[
-            "ticker",
-            "name_ko",
-            "currency",
-            "year",
-            "month",
-            "gross_dividend",
-            "net_dividend",
-            "krw_gross",
-            "krw_net",
-            "event_count",
-        ],
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return pd.DataFrame()
+    df["year"] = pd.to_numeric(df["year"], errors="coerce")
+    df["month"] = pd.to_numeric(df["month"], errors="coerce")
+    df["name_ko"] = df["ticker"].map(lambda t: meta_map.get(t, {}).get("name_ko"))
+    df["event_count"] = 1
+    df = (
+        df.groupby(
+            ["ticker", "name_ko", "currency", "year", "month"],
+            as_index=False,
+        )
+        .agg(
+            gross_dividend=("gross_dividend", "sum"),
+            net_dividend=("net_dividend", "sum"),
+            krw_gross=("krw_gross", "sum"),
+            krw_net=("krw_net", "sum"),
+            event_count=("event_count", "sum"),
+        )
     )
     df["month_start"] = pd.to_datetime(
         df["year"].astype(str) + "-" + df["month"].astype(str).str.zfill(2) + "-01"

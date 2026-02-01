@@ -10,3 +10,5 @@ __pycache__/
 .idea/workspace.xml
 dart_api_key
 !dividends-seed.sqlite3
+secrets/
+*.json

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from core.cash_service import apply_cash_delta, get_latest_cash_snapshot, upsert_cash_snapshot
 from core.db import DB_PATH
 from core.db import db_session
+from core.firestore_reader import is_firestore_enabled
 from core.holdings_service import get_positions, list_trades, record_trade
 from core.fx import fetch_fx_rate_frankfurter
 from core.models import AccountType, HoldingLot, HoldingPosition, TickerMaster, TradeSide
@@ -145,8 +146,8 @@ def _render_csv_importers():
             st.error(f"Snapshot Import 실패: {exc}")
 
 with db_session() as session:
-    has_any_positions = session.execute(select(HoldingPosition.id).limit(1)).first() is not None
-    has_any_lots = session.execute(select(HoldingLot.id).limit(1)).first() is not None
+    has_any_positions = len(get_positions(session, account_type=None)) > 0
+    has_any_lots = len(list_trades(session, limit=1)) > 0
 
 with st.expander("현금 관리", expanded=True):
     cash_cols = st.columns(2)
@@ -359,69 +360,72 @@ with st.expander("거래 내역", expanded=False):
         st.subheader("거래 삭제(주의)")
         st.caption("선택한 거래를 삭제하고 현금/포지션 영향을 되돌립니다.")
 
-        option_map = {}
-        for lot in trades:
-            label = (
-                f"{lot.id} | {lot.trade_date} | {lot.ticker} | "
-                f"{lot.account_type.value} | {lot.side.value} | {lot.quantity:,.0f}"
+        if is_firestore_enabled():
+            st.info("Firestore 모드에서는 거래 삭제 기능이 아직 지원되지 않습니다.")
+        else:
+            option_map = {}
+            for lot in trades:
+                label = (
+                    f"{lot.id} | {lot.trade_date} | {lot.ticker} | "
+                    f"{lot.account_type.value} | {lot.side.value} | {lot.quantity:,.0f}"
+                )
+                option_map[label] = lot.id
+
+            selected_label = st.selectbox(
+                "삭제할 거래 선택",
+                options=list(option_map.keys()),
+                key="trade_delete_select",
             )
-            option_map[label] = lot.id
+            confirm_delete = st.checkbox("정말 삭제할 것을 확인했습니다.", key="trade_delete_confirm")
+            if st.button("선택 거래 삭제", key="trade_delete_button") and confirm_delete:
+                try:
+                    with db_session() as session:
+                        lot = session.execute(
+                            select(HoldingLot).where(HoldingLot.id == option_map[selected_label])
+                        ).scalar_one_or_none()
+                        if lot is None:
+                            st.error("해당 거래를 찾을 수 없습니다.")
+                        else:
+                            amount_krw = lot.amount_krw
+                            if amount_krw is None:
+                                amount_krw = (lot.price_krw or 0.0) * lot.quantity
+                            if amount_krw is None:
+                                raise ValueError("거래 금액(KRW)을 계산할 수 없습니다.")
+                            cash_delta = amount_krw if lot.side == TradeSide.SELL else -amount_krw
+                            reverse_delta = -cash_delta
+                            target_date = lot.trade_date
+                            latest_account_cash = get_latest_cash_snapshot(
+                                session,
+                                account_type=lot.account_type,
+                            )
+                            latest_all_cash = get_latest_cash_snapshot(
+                                session,
+                                account_type=AccountType.ALL,
+                            )
+                            for latest_cash in (latest_account_cash, latest_all_cash):
+                                if latest_cash and latest_cash.snapshot_date > target_date:
+                                    target_date = latest_cash.snapshot_date
 
-        selected_label = st.selectbox(
-            "삭제할 거래 선택",
-            options=list(option_map.keys()),
-            key="trade_delete_select",
-        )
-        confirm_delete = st.checkbox("정말 삭제할 것을 확인했습니다.", key="trade_delete_confirm")
-        if st.button("선택 거래 삭제", key="trade_delete_button") and confirm_delete:
-            try:
-                with db_session() as session:
-                    lot = session.execute(
-                        select(HoldingLot).where(HoldingLot.id == option_map[selected_label])
-                    ).scalar_one_or_none()
-                    if lot is None:
-                        st.error("해당 거래를 찾을 수 없습니다.")
-                    else:
-                        amount_krw = lot.amount_krw
-                        if amount_krw is None:
-                            amount_krw = (lot.price_krw or 0.0) * lot.quantity
-                        if amount_krw is None:
-                            raise ValueError("거래 금액(KRW)을 계산할 수 없습니다.")
-                        cash_delta = amount_krw if lot.side == TradeSide.SELL else -amount_krw
-                        reverse_delta = -cash_delta
-                        target_date = lot.trade_date
-                        latest_account_cash = get_latest_cash_snapshot(
-                            session,
-                            account_type=lot.account_type,
-                        )
-                        latest_all_cash = get_latest_cash_snapshot(
-                            session,
-                            account_type=AccountType.ALL,
-                        )
-                        for latest_cash in (latest_account_cash, latest_all_cash):
-                            if latest_cash and latest_cash.snapshot_date > target_date:
-                                target_date = latest_cash.snapshot_date
-
-                        account_result = apply_cash_delta(
-                            session,
-                            account_type=lot.account_type,
-                            snapshot_date=target_date,
-                            delta_krw=reverse_delta,
-                            note=f"revert trade delete {lot.side.value} {lot.ticker}",
-                        )
-                        all_result = apply_cash_delta(
-                            session,
-                            account_type=AccountType.ALL,
-                            snapshot_date=target_date,
-                            delta_krw=reverse_delta,
-                            note=f"revert trade delete {lot.side.value} {lot.ticker}",
-                        )
-                        if account_result is None or all_result is None:
-                            st.warning("현금 스냅샷이 없어 일부 현금 변경이 반영되지 않았습니다.")
-                        session.delete(lot)
-                        st.success("거래를 삭제했습니다. 화면을 새로고침해 주세요.")
-            except Exception as exc:
-                st.error(f"거래 삭제 실패: {exc}")
+                            account_result = apply_cash_delta(
+                                session,
+                                account_type=lot.account_type,
+                                snapshot_date=target_date,
+                                delta_krw=reverse_delta,
+                                note=f"revert trade delete {lot.side.value} {lot.ticker}",
+                            )
+                            all_result = apply_cash_delta(
+                                session,
+                                account_type=AccountType.ALL,
+                                snapshot_date=target_date,
+                                delta_krw=reverse_delta,
+                                note=f"revert trade delete {lot.side.value} {lot.ticker}",
+                            )
+                            if account_result is None or all_result is None:
+                                st.warning("현금 스냅샷이 없어 일부 현금 변경이 반영되지 않았습니다.")
+                            session.delete(lot)
+                            st.success("거래를 삭제했습니다. 화면을 새로고침해 주세요.")
+                except Exception as exc:
+                    st.error(f"거래 삭제 실패: {exc}")
 
 with st.expander("수동 거래 입력", expanded=False):
     st.subheader("수동 거래 입력 (BUY/SELL)")
@@ -442,12 +446,13 @@ with st.expander("수동 거래 입력", expanded=False):
         manual_candidate = None
     resolved_ticker = normalize_ticker(manual_ticker)
     if resolved_ticker and not manual_candidate and _is_complete_ticker(resolved_ticker):
-        with db_session() as session:
-            resolved = resolve_missing_ticker_names(session, [resolved_ticker])
-        resolved_name = resolved.get(resolved_ticker)
-        if resolved_name:
-            manual_candidate = TickerSuggestion(ticker=resolved_ticker, name_ko=resolved_name)
-            st.caption(f"자동 조회: {resolved_name} ({resolved_ticker})")
+        if not is_firestore_enabled():
+            with db_session() as session:
+                resolved = resolve_missing_ticker_names(session, [resolved_ticker])
+            resolved_name = resolved.get(resolved_ticker)
+            if resolved_name:
+                manual_candidate = TickerSuggestion(ticker=resolved_ticker, name_ko=resolved_name)
+                st.caption(f"자동 조회: {resolved_name} ({resolved_ticker})")
         if st.checkbox("pykis debug", value=False, key="manual_trade_pykis_debug"):
             st.write(debug_pykis_stock(resolved_ticker))
 
@@ -577,13 +582,18 @@ with st.expander("기본 포지션 수정", expanded=False):
     )
     st.caption("현재 화면에는 거래 내역을 반영한 최신 수량/평균 매입가가 표시됩니다.")
 
-    with db_session() as session:
-        base_positions = session.execute(
-            select(HoldingPosition)
-            .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
-        ).scalars().all()
-        base_map = {(pos.account_type, pos.ticker): pos for pos in base_positions}
-        current_positions = get_positions(session)
+    if is_firestore_enabled():
+        st.info("Firestore 모드에서는 기본 포지션 수정 기능이 아직 지원되지 않습니다.")
+        current_positions = []
+        base_map = {}
+    else:
+        with db_session() as session:
+            base_positions = session.execute(
+                select(HoldingPosition)
+                .order_by(HoldingPosition.account_type, HoldingPosition.ticker)
+            ).scalars().all()
+            base_map = {(pos.account_type, pos.ticker): pos for pos in base_positions}
+            current_positions = get_positions(session)
 
     if not current_positions:
         st.info("수정할 기본 포지션이 없습니다. 먼저 CSV를 업로드하거나 거래를 입력해 포지션을 만들어 주세요.")

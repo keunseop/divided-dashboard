@@ -6,6 +6,7 @@ from typing import List
 from sqlalchemy import select
 
 from core.db import db_session
+from core.firestore_reader import is_firestore_enabled, list_ticker_master
 from core.models import TickerMaster
 from core.ticker_resolver import resolve_missing_ticker_names
 from core.utils import normalize_ticker
@@ -24,6 +25,29 @@ class TickerSuggestion:
 def find_ticker_candidates(query: str, limit: int = 20) -> List[TickerSuggestion]:
     term = (query or "").strip()
     normalized = normalize_ticker(term)
+
+    if is_firestore_enabled():
+        entries = list_ticker_master()
+        suggestions: list[TickerSuggestion] = []
+        seen: set[str] = set()
+
+        if normalized and normalized in entries:
+            name = entries[normalized].get("name_ko") or normalized
+            suggestions.append(TickerSuggestion(ticker=normalized, name_ko=name))
+            seen.add(normalized)
+
+        for ticker, meta in entries.items():
+            name_ko = meta.get("name_ko") or ""
+            if term and term not in name_ko and term not in ticker:
+                continue
+            if ticker in seen:
+                continue
+            suggestions.append(TickerSuggestion(ticker=ticker, name_ko=name_ko or ticker))
+            seen.add(ticker)
+            if len(suggestions) >= limit:
+                break
+
+        return suggestions
 
     with db_session() as session:
         suggestions: list[TickerSuggestion] = []

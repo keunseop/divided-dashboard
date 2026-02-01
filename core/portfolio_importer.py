@@ -5,6 +5,12 @@ from dataclasses import dataclass
 import pandas as pd
 from sqlalchemy import select
 
+from core.firestore_reader import is_firestore_enabled
+from core.firestore_writer import (
+    upsert_trades as upsert_holding_lots_firestore,
+    upsert_portfolio_snapshots as upsert_portfolio_snapshots_firestore,
+    upsert_positions as upsert_positions_firestore,
+)
 from core.models import AccountType, HoldingLot, HoldingPosition, PortfolioSnapshot, TradeSide
 from core.utils import normalize_ticker
 
@@ -214,6 +220,26 @@ def read_holding_positions_csv(uploaded_file) -> pd.DataFrame:
 
 
 def upsert_holding_positions(session, df: pd.DataFrame) -> ImportResult:
+    if is_firestore_enabled():
+        records = []
+        for row in df.to_dict("records"):
+            quantity = row["quantity"]
+            avg_price = row["avg_buy_price_krw"]
+            total_cost = quantity * avg_price
+            records.append(
+                {
+                    "ticker": row["ticker"],
+                    "account_type": row["account_type"].value if isinstance(row["account_type"], AccountType) else row["account_type"],
+                    "quantity": quantity,
+                    "avg_buy_price_krw": avg_price,
+                    "total_cost_krw": total_cost,
+                    "note": row.get("note"),
+                    "source": row.get("source") or "manual",
+                }
+            )
+        inserted, updated = upsert_positions_firestore(records)
+        return ImportResult(inserted=inserted, updated=updated)
+
     inserted = 0
     updated = 0
     for row in df.to_dict("records"):
@@ -288,6 +314,24 @@ def read_portfolio_snapshots_csv(uploaded_file) -> pd.DataFrame:
 
 
 def upsert_portfolio_snapshots(session, df: pd.DataFrame) -> ImportResult:
+    if is_firestore_enabled():
+        records = []
+        for row in df.to_dict("records"):
+            records.append(
+                {
+                    "external_id": row.get("external_id"),
+                    "snapshot_date": row["snapshot_date"],
+                    "account_type": row["account_type"].value if isinstance(row["account_type"], AccountType) else row["account_type"],
+                    "contributed_krw": row.get("contributed_krw"),
+                    "cash_krw": row.get("cash_krw"),
+                    "valuation_krw": row.get("valuation_krw"),
+                    "note": row.get("note"),
+                    "source": row.get("source") or "excel",
+                }
+            )
+        inserted, updated = upsert_portfolio_snapshots_firestore(records)
+        return ImportResult(inserted=inserted, updated=updated)
+
     inserted = 0
     updated = 0
     for row in df.to_dict("records"):
@@ -446,6 +490,34 @@ def _normalize_side(value) -> TradeSide:
 
 
 def upsert_holding_lots(session, df: pd.DataFrame) -> ImportResult:
+    if is_firestore_enabled():
+        records = []
+        for row in df.to_dict("records"):
+            fx_value = row.get("fx_rate")
+            if fx_value is None or pd.isna(fx_value):
+                fx_value = 1.0 if row["currency"] == "KRW" else None
+            if fx_value is None:
+                raise ValueError("환율 정보가 없는 행이 있습니다.")
+            records.append(
+                {
+                    "external_id": row.get("external_id"),
+                    "trade_date": row["trade_date"],
+                    "ticker": row["ticker"],
+                    "account_type": row["account_type"].value if isinstance(row["account_type"], AccountType) else row["account_type"],
+                    "side": row["side"].value if isinstance(row["side"], TradeSide) else row["side"],
+                    "quantity": float(row["quantity"]),
+                    "price": float(row["price"]),
+                    "currency": row["currency"],
+                    "fx_rate": float(fx_value),
+                    "price_krw": float(row["price_krw"]),
+                    "amount_krw": float(row["amount_krw"]),
+                    "note": row.get("note"),
+                    "source": row.get("source") or "excel",
+                }
+            )
+        inserted, updated = upsert_holding_lots_firestore(records)
+        return ImportResult(inserted=inserted, updated=updated)
+
     inserted = 0
     updated = 0
 

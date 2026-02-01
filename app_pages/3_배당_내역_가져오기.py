@@ -1,9 +1,9 @@
 import streamlit as st
-from sqlalchemy import desc, select
 
 from core.db import db_session
+from core.dividend_reader import list_dividend_events
 from core.importer import read_and_normalize_csv, upsert_dividends
-from core.models import DividendEvent, TickerMaster
+from core.ticker_reader import get_ticker_meta_map
 from core.user_gate import require_user
 
 require_user()
@@ -18,23 +18,22 @@ def fmt_money(x):
     return "" if x is None else f"{x:,.0f}"
 
 with db_session() as s:
-    rows = s.execute(
-        select(DividendEvent, TickerMaster.name_ko)
-        .join(TickerMaster, TickerMaster.ticker == DividendEvent.ticker, isouter=True)
-        .where(DividendEvent.archived == False)  # noqa: E712
-        .order_by(desc(DividendEvent.pay_date))
-        .limit(50)
-    ).all()
+    rows = list_dividend_events(s, archived=False, limit=50, order_desc=True)
+    tickers = {row.get("ticker") for row in rows if row.get("ticker")}
+    meta_map = get_ticker_meta_map(s, tickers=list(tickers))
 
-recent_data = [
-    {
-        "지급일": ev.pay_date,
-        "종목명": f"{name_ko or '(미등록)'} ({ev.ticker})",
-        "통화": ev.currency,
-        "원화세전": fmt_money(ev.krw_gross),
-    }
-    for ev, name_ko in rows
-]
+recent_data = []
+for row in rows:
+    ticker = row.get("ticker")
+    name_ko = meta_map.get(ticker, {}).get("name_ko")
+    recent_data.append(
+        {
+            "지급일": row.get("pay_date"),
+            "종목명": f"{name_ko or '(미등록)'} ({ticker})",
+            "통화": row.get("currency"),
+            "원화세전": fmt_money(row.get("krw_gross")),
+        }
+    )
 
 if recent_data:
     st.dataframe(recent_data, use_container_width=True, hide_index=True)

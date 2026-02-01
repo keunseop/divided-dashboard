@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import pandas as pd
 from sqlalchemy import select, update
 
+from core.firestore_reader import is_firestore_enabled
+from core.firestore_writer import upsert_dividends_from_df
 from core.models import AccountType, DividendEvent
 from core.utils import normalize_ticker
 
@@ -148,6 +150,14 @@ class ImportResult:
 
 
 def upsert_dividends(session, df: pd.DataFrame, sync_mode: bool = True) -> ImportResult:
+    if is_firestore_enabled():
+        inserted, updated, archived_candidates = upsert_dividends_from_df(df, sync_mode=sync_mode)
+        return ImportResult(
+            inserted=inserted,
+            updated=updated,
+            archived_candidates=archived_candidates,
+        )
+
     existing = session.execute(
         select(DividendEvent.row_id, DividendEvent.id, DividendEvent.archived, DividendEvent.source)
     ).all()

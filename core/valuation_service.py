@@ -11,6 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from core.db import db_session
+from core.firestore_reader import is_firestore_enabled, list_valuation_snapshots, parse_date
+from core.firestore_writer import upsert_valuation_snapshots as upsert_valuation_snapshots_firestore
 from core.fx import fetch_fx_rate_frankfurter
 from core.holdings_service import get_positions
 from core.market_data import PriceQuote
@@ -272,6 +274,26 @@ def upsert_valuation_snapshots(
     inserted = 0
     updated = 0
 
+    if is_firestore_enabled():
+        records = []
+        for account_type, summary in summaries.items():
+            if summary.positions_count == 0:
+                continue
+            records.append(
+                {
+                    "valuation_date": as_of_date,
+                    "account_type": account_type.value,
+                    "total_cost_krw": summary.total_cost_krw,
+                    "market_value_krw": summary.market_value_krw,
+                    "gain_loss_krw": summary.gain_loss_krw,
+                    "gain_loss_pct": summary.gain_loss_pct,
+                }
+            )
+        if records:
+            upsert_valuation_snapshots_firestore(records)
+            inserted = len(records)
+        return SnapshotSaveResult(inserted=inserted, updated=updated)
+
     for account_type, summary in summaries.items():
         if summary.positions_count == 0:
             continue
@@ -308,6 +330,30 @@ def get_valuation_history(
     *,
     limit: int = 180,
 ) -> list[ValuationHistoryEntry]:
+    if is_firestore_enabled():
+        rows = list_valuation_snapshots()
+        filtered = []
+        for row in rows:
+            if row.get("account_type") != account_type.value:
+                continue
+            valuation_date = parse_date(row.get("valuation_date"))
+            if valuation_date is None:
+                continue
+            filtered.append(
+                ValuationHistoryEntry(
+                    valuation_date=valuation_date,
+                    account_type=account_type,
+                    total_cost_krw=float(row.get("total_cost_krw") or 0),
+                    market_value_krw=float(row.get("market_value_krw") or 0),
+                    gain_loss_krw=float(row.get("gain_loss_krw") or 0),
+                    gain_loss_pct=row.get("gain_loss_pct"),
+                )
+            )
+        filtered.sort(key=lambda r: r.valuation_date)
+        if limit:
+            return filtered[-limit:]
+        return filtered
+
     stmt = (
         select(HoldingValuationSnapshot)
         .where(HoldingValuationSnapshot.account_type == account_type)

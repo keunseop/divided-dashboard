@@ -5,6 +5,8 @@ from dataclasses import dataclass
 import pandas as pd
 from sqlalchemy import select
 
+from core.firestore_reader import is_firestore_enabled
+from core.firestore_writer import upsert_tickers as upsert_tickers_firestore
 from core.models import TickerMaster
 from core.utils import normalize_ticker
 
@@ -45,6 +47,20 @@ def read_ticker_master_csv(uploaded_file) -> pd.DataFrame:
 
 
 def upsert_ticker_master(session, df: pd.DataFrame) -> TickerImportResult:
+    if is_firestore_enabled():
+        records = []
+        for _, row in df.iterrows():
+            records.append(
+                {
+                    "ticker": row["ticker"],
+                    "name_ko": row["name_ko"],
+                    "market": row.get("market"),
+                    "currency": row.get("currency"),
+                }
+            )
+        inserted, updated = upsert_tickers_firestore(records)
+        return TickerImportResult(inserted=inserted, updated=updated)
+
     inserted = 0
     updated = 0
 

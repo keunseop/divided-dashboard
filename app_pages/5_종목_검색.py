@@ -4,7 +4,6 @@ import plotly.graph_objects as go
 import streamlit as st
 from datetime import date
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import select
 
 from core.kis.domestic_quotes import fetch_domestic_price_history
 from core.kis.overseas_quotes import fetch_overseas_price_history
@@ -15,11 +14,14 @@ from core.analytics import (
     compute_trailing_dividend_yield,
 )
 from core.db import db_session
+from core.firestore_reader import is_firestore_enabled
+from core.dividend_reader import list_dividend_events
 from core.market_service import (
     get_dividend_history_for_ticker,
     get_price_quote_for_ticker,
 )
-from core.models import DividendCache, DividendEvent, TickerMaster
+from core.models import DividendCache
+from core.ticker_reader import get_ticker_meta_map
 from core.ticker_lookup import TickerSuggestion
 from core.ticker_resolver import resolve_missing_ticker_names
 from core.ui_autocomplete import render_ticker_autocomplete
@@ -45,17 +47,13 @@ def _is_complete_ticker(value: str) -> bool:
 @st.cache_data(ttl=300)
 def _load_owned_tickers() -> dict[str, str]:
     with db_session() as session:
-        rows = (
-            session.execute(
-                select(DividendEvent.ticker, TickerMaster.name_ko)
-                .join(TickerMaster, TickerMaster.ticker == DividendEvent.ticker, isouter=True)
-                .where(DividendEvent.archived == False)  # noqa: E712
-                .order_by(DividendEvent.ticker)
-            )
-            .all()
-        )
+        rows = list_dividend_events(session, archived=False)
+        tickers = {row.get("ticker") for row in rows if row.get("ticker")}
+        meta_map = get_ticker_meta_map(session, tickers=list(tickers))
     result: dict[str, str] = {}
-    for ticker, name in rows:
+    for row in rows:
+        ticker = row.get("ticker")
+        name = meta_map.get(ticker, {}).get("name_ko")
         if ticker in result:
             continue
         display = f"{ticker} ({name})" if name else ticker
@@ -240,12 +238,13 @@ selected_candidate = render_ticker_autocomplete(
 )
 manual_normalized = normalize_ticker(manual_ticker)
 if manual_normalized and not selected_candidate and _is_complete_ticker(manual_normalized):
-    with db_session() as session:
-        resolved = resolve_missing_ticker_names(session, [manual_normalized])
-    resolved_name = resolved.get(manual_normalized)
-    if resolved_name:
-        selected_candidate = TickerSuggestion(ticker=manual_normalized, name_ko=resolved_name)
-        st.caption(f"자동 조회: {resolved_name} ({manual_normalized})")
+    if not is_firestore_enabled():
+        with db_session() as session:
+            resolved = resolve_missing_ticker_names(session, [manual_normalized])
+        resolved_name = resolved.get(manual_normalized)
+        if resolved_name:
+            selected_candidate = TickerSuggestion(ticker=manual_normalized, name_ko=resolved_name)
+            st.caption(f"자동 조회: {resolved_name} ({manual_normalized})")
 
 market_option = st.selectbox(
     "시장",

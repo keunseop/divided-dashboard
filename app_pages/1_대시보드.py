@@ -1,14 +1,14 @@
 import altair as alt
 import streamlit as st
 import pandas as pd
-from sqlalchemy import select
 
 from core.cash_service import (
     list_cash_snapshots,
 )
 from core.db import db_session
-from core.models import DividendEvent, AccountType, TickerMaster
-from core.ticker_resolver import resolve_missing_ticker_names
+from core.dividend_reader import list_dividend_events
+from core.models import AccountType
+from core.ticker_reader import get_ticker_meta_map
 from core.user_gate import require_user
 from core.utils import infer_market_from_ticker, normalize_market_code
 from core.valuation_service import (
@@ -27,26 +27,14 @@ account_filter = "ALL"
 col = "krw_gross"
 
 with db_session() as s:
-    q = (
-        select(
-            DividendEvent.pay_date,
-            DividendEvent.year,
-            DividendEvent.month,
-            DividendEvent.ticker,
-            getattr(DividendEvent, col).label("value"),
-        ).where(DividendEvent.archived == False)
-    )  # noqa: E712
-
-    if account_filter != "ALL":
-        q = q.where(DividendEvent.account_type == AccountType(account_filter))
-
-    rows = s.execute(q).all()
-    tickers = {row.ticker for row in rows if row.ticker}
-    if tickers:
-        resolve_missing_ticker_names(s, tickers)
-    ticker_name_map = dict(
-        s.execute(select(TickerMaster.ticker, TickerMaster.name_ko)).all()
+    rows = list_dividend_events(
+        s,
+        account_type=None if account_filter == "ALL" else AccountType(account_filter),
+        archived=False,
     )
+    tickers = {row.get("ticker") for row in rows if row.get("ticker")}
+    ticker_meta = get_ticker_meta_map(s, tickers=list(tickers))
+    ticker_name_map = {ticker: meta.get("name_ko") for ticker, meta in ticker_meta.items()}
 
 if not rows:
     st.info("데이터가 없습니다. 먼저 CSV Import를 해주세요.")
@@ -57,7 +45,20 @@ def fmt_krw(x):
     return "N/A" if x is None else f"{x:,.0f}원"
 
 
-df = pd.DataFrame(rows, columns=["payDate", "year", "month", "ticker", "value"])
+df = pd.DataFrame(
+    [
+        {
+            "payDate": row.get("pay_date"),
+            "year": row.get("year"),
+            "month": row.get("month"),
+            "ticker": row.get("ticker"),
+            "value": row.get(col),
+        }
+        for row in rows
+    ]
+)
+df["year"] = pd.to_numeric(df["year"], errors="coerce")
+df["month"] = pd.to_numeric(df["month"], errors="coerce")
 df = df.dropna(subset=["value"])
 df["payDate"] = pd.to_datetime(df["payDate"])
 
@@ -370,12 +371,10 @@ if display_valuations:
     tickers = {val.ticker for val in display_valuations if val.ticker}
     if tickers:
         with db_session() as session:
-            rows = session.execute(
-                select(TickerMaster.ticker, TickerMaster.market).where(
-                    TickerMaster.ticker.in_(tickers)
-                )
-            ).all()
-            ticker_markets = {row.ticker: row.market for row in rows}
+            meta_map = get_ticker_meta_map(session, tickers=list(tickers))
+            ticker_markets = {
+                ticker: meta.get("market") for ticker, meta in meta_map.items()
+            }
 
     market_groups = []
     total_value = 0.0
