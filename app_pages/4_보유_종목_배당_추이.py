@@ -71,13 +71,7 @@ require_user()
 st.title("보유 종목 배당 추이")
 st.caption("현재 보유 중인 배당 종목의 로컬 DB 배당 히스토리를 월별로 정리해 보여줍니다.")
 
-account_labels = {
-    "전체": None,
-    "일반": AccountType.TAXABLE,
-    "ISA": AccountType.ISA,
-}
-account_label = st.selectbox("계좌 구분", options=list(account_labels.keys()), index=0)
-account_filter = account_labels[account_label]
+account_filter = None
 
 with db_session() as session:
     positions = get_positions(

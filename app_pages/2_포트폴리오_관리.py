@@ -151,17 +151,9 @@ with db_session() as session:
 
 with st.expander("현금 관리", expanded=True):
     cash_cols = st.columns(2)
-    account_options = [acct.value for acct in AccountType if acct != AccountType.ALL]
     with cash_cols[0]:
         st.subheader("현금 스냅샷 수정")
-        cash_snapshot_account = st.selectbox(
-            "계좌 구분",
-            options=["ALL"] + account_options,
-            key="cash_snapshot_account",
-        )
-        snapshot_account_type = (
-            AccountType.ALL if cash_snapshot_account == "ALL" else AccountType(cash_snapshot_account)
-        )
+        snapshot_account_type = AccountType.ALL
         with db_session() as session:
             latest_cash = get_latest_cash_snapshot(
                 session,
@@ -194,18 +186,11 @@ with st.expander("현금 관리", expanded=True):
 
     with cash_cols[1]:
         st.subheader("현금 입금/출금")
-        default_cash_account = account_options[0]
         with st.form("cash_delta_form_portfolio"):
             cash_delta_date = st.date_input(
                 "입금/출금일",
                 value=pd.Timestamp.today().date(),
                 key="cash_delta_date_portfolio",
-            )
-            cash_delta_account = st.selectbox(
-                "계좌 구분",
-                options=account_options,
-                index=account_options.index(default_cash_account),
-                key="cash_delta_account_portfolio",
             )
             cash_delta_type = st.selectbox(
                 "구분",
@@ -228,24 +213,13 @@ with st.expander("현금 관리", expanded=True):
                 delta_krw = delta_sign * float(cash_delta_amount)
                 target_date = cash_delta_date
                 with db_session() as session:
-                    latest_account_cash = get_latest_cash_snapshot(
-                        session,
-                        account_type=AccountType(cash_delta_account),
-                    )
                     latest_all_cash = get_latest_cash_snapshot(
                         session,
                         account_type=AccountType.ALL,
                     )
-                    for latest_cash in (latest_account_cash, latest_all_cash):
+                    for latest_cash in (latest_all_cash,):
                         if latest_cash and latest_cash.snapshot_date > target_date:
                             target_date = latest_cash.snapshot_date
-                    apply_cash_delta(
-                        session,
-                        account_type=AccountType(cash_delta_account),
-                        snapshot_date=target_date,
-                        delta_krw=delta_krw,
-                        note=cash_delta_note or None,
-                    )
                     apply_cash_delta(
                         session,
                         account_type=AccountType.ALL,
@@ -259,15 +233,8 @@ with st.expander("현금 관리", expanded=True):
 
 with st.expander("현재 포지션", expanded=True):
     st.subheader("현재 포지션 미리보기")
-    account_filter = st.selectbox(
-        "계좌 필터",
-        options=["ALL"] + [acct.value for acct in AccountType if acct != AccountType.ALL],
-        help="계좌별로 잔여 수량과 평균 단가를 확인합니다.",
-    )
-
     with db_session() as session:
-        account = None if account_filter == "ALL" else AccountType(account_filter)
-        positions = get_positions(session, account_type=account)
+        positions = get_positions(session, account_type=None)
 
     if not positions:
         st.info("등록된 포지션이 없습니다. CSV 업로드 또는 매수 입력으로 추가해 주세요.")
@@ -276,7 +243,6 @@ with st.expander("현재 포지션", expanded=True):
             [
                 {
                     "Symbol": f"{pos.ticker} ({pos.name_ko})" if pos.name_ko else pos.ticker,
-                    "Account": pos.account_type.value,
                     "Quantity": pos.quantity,
                     "Avg Buy Price (KRW)": pos.avg_buy_price_krw,
                     "Cost Basis (KRW)": pos.total_cost_krw,
@@ -291,7 +257,6 @@ with st.expander("현재 포지션", expanded=True):
             hide_index=True,
             column_config={
                 "Symbol": st.column_config.TextColumn("종목"),
-                "Account": st.column_config.TextColumn("계좌"),
                 "Quantity": st.column_config.NumberColumn("수량", format="%.0f"),
                 "Avg Buy Price (KRW)": st.column_config.NumberColumn("평균 매입가 (KRW)", format="%.0f"),
                 "Cost Basis (KRW)": st.column_config.NumberColumn("Cost Basis (KRW)", format="%.0f"),
@@ -301,23 +266,16 @@ with st.expander("현재 포지션", expanded=True):
 
 with st.expander("거래 내역", expanded=False):
     st.subheader("거래 내역 미리보기")
-    trade_filter_col1, trade_filter_col2, trade_filter_col3 = st.columns([2, 1.5, 1])
+    trade_filter_col1, trade_filter_col2 = st.columns([2, 1])
     with trade_filter_col1:
         trade_filter_ticker = st.text_input("티커 필터", value="")
     with trade_filter_col2:
-        trade_filter_account = st.selectbox(
-            "계좌 필터",
-            options=["ALL"] + [acct.value for acct in AccountType if acct != AccountType.ALL],
-            key="trade_account_filter",
-        )
-    with trade_filter_col3:
         trade_limit = st.number_input("표시 건수", min_value=50, max_value=1000, value=200, step=50)
 
     with db_session() as session:
-        account_arg = None if trade_filter_account == "ALL" else AccountType(trade_filter_account)
         trades = list_trades(
             session,
-            account_type=account_arg,
+            account_type=None,
             ticker=trade_filter_ticker or None,
             limit=int(trade_limit),
         )
@@ -330,7 +288,6 @@ with st.expander("거래 내역", expanded=False):
                 {
                     "Date": lot.trade_date,
                     "Ticker": lot.ticker,
-                    "Account": lot.account_type.value,
                     "Side": lot.side.value,
                     "Quantity": lot.quantity,
                     "Price": lot.price,
@@ -367,7 +324,7 @@ with st.expander("거래 내역", expanded=False):
             for lot in trades:
                 label = (
                     f"{lot.id} | {lot.trade_date} | {lot.ticker} | "
-                    f"{lot.account_type.value} | {lot.side.value} | {lot.quantity:,.0f}"
+                    f"{lot.side.value} | {lot.quantity:,.0f}"
                 )
                 option_map[label] = lot.id
 
@@ -456,11 +413,7 @@ with st.expander("수동 거래 입력", expanded=False):
         if st.checkbox("pykis debug", value=False, key="manual_trade_pykis_debug"):
             st.write(debug_pykis_stock(resolved_ticker))
 
-    trade_account = st.selectbox(
-        "계좌",
-        options=[acct.value for acct in AccountType if acct != AccountType.ALL],
-        key="manual_trade_account",
-    )
+    trade_account = AccountType.ALL.value
     trade_side = st.selectbox(
         "매매 구분",
         options=[TradeSide.BUY.value, TradeSide.SELL.value],
@@ -526,8 +479,8 @@ with st.expander("수동 거래 입력", expanded=False):
             side_enum = TradeSide(trade_side)
             with db_session() as session:
                 if side_enum == TradeSide.SELL:
-                    positions = get_positions(session, account_type=AccountType(trade_account), tickers=[trade_ticker])
-                    qty_available = positions[0].quantity if positions else 0.0
+                    positions = get_positions(session, account_type=None, tickers=[trade_ticker])
+                    qty_available = sum(pos.quantity for pos in positions)
                     if qty_available < trade_quantity - 1e-8:
                         raise ValueError(f"보유 수량({qty_available:,.0f})보다 많은 매도를 입력했습니다.")
                 lot = record_trade(
@@ -545,24 +498,12 @@ with st.expander("수동 거래 입력", expanded=False):
                 )
                 cash_delta = lot.amount_krw if side_enum == TradeSide.SELL else -lot.amount_krw
                 target_date = trade_date
-                latest_account_cash = get_latest_cash_snapshot(
-                    session,
-                    account_type=AccountType(trade_account),
-                )
                 latest_all_cash = get_latest_cash_snapshot(
                     session,
                     account_type=AccountType.ALL,
                 )
-                for latest_cash in (latest_account_cash, latest_all_cash):
-                    if latest_cash and latest_cash.snapshot_date > target_date:
-                        target_date = latest_cash.snapshot_date
-                apply_cash_delta(
-                    session,
-                    account_type=AccountType(trade_account),
-                    snapshot_date=target_date,
-                    delta_krw=cash_delta,
-                    note=f"manual trade {side_enum.value} {trade_ticker}",
-                )
+                if latest_all_cash and latest_all_cash.snapshot_date > target_date:
+                    target_date = latest_all_cash.snapshot_date
                 apply_cash_delta(
                     session,
                     account_type=AccountType.ALL,
@@ -601,8 +542,7 @@ with st.expander("기본 포지션 수정", expanded=False):
         position_options = [
             {
                 "key": f"{pos.account_type.value}:{pos.ticker}",
-                "label": f"[{pos.account_type.value}] {pos.ticker}"
-                + (f" ({pos.name_ko})" if pos.name_ko else ""),
+                "label": f"{pos.ticker}" + (f" ({pos.name_ko})" if pos.name_ko else ""),
                 "account": pos.account_type,
                 "ticker": pos.ticker,
                 "quantity": float(pos.quantity),

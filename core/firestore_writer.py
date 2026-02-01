@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date, datetime
 from typing import Any, Iterable
 
 from core import firestore_reader
@@ -31,6 +32,18 @@ def _write_batch(collection_path: str, docs: list[tuple[str, dict[str, Any]]]) -
     return len(docs)
 
 
+def _serialize_value(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
+
+
+def _serialize_record(record: dict[str, Any]) -> dict[str, Any]:
+    return {key: _serialize_value(value) for key, value in record.items()}
+
+
 def upsert_dividends_from_df(df, *, sync_mode: bool) -> tuple[int, int, int]:
     if not firestore_reader.is_firestore_enabled():
         raise RuntimeError("Firestore is not enabled.")
@@ -41,7 +54,7 @@ def upsert_dividends_from_df(df, *, sync_mode: bool) -> tuple[int, int, int]:
     docs: list[tuple[str, dict[str, Any]]] = []
     for row in rows:
         row_id = row["rowId"]
-        payload = {
+        payload = _serialize_record({
             "row_id": row_id,
             "pay_date": row["payDate"],
             "year": int(row["year"]),
@@ -57,7 +70,7 @@ def upsert_dividends_from_df(df, *, sync_mode: bool) -> tuple[int, int, int]:
             "account_type": row["accountType"],
             "source": "excel",
             "archived": False,
-        }
+        })
         docs.append((_safe_doc_id(row_id), payload))
 
     collection = firestore_reader.get_collection_path("dividends")
@@ -94,7 +107,7 @@ def upsert_positions(records: list[dict[str, Any]]) -> tuple[int, int]:
         ticker = row.get("ticker")
         account_type = row.get("account_type")
         doc_id = _safe_doc_id(f"{ticker}_{account_type}") if account_type else _safe_doc_id(str(ticker))
-        docs.append((doc_id, row))
+        docs.append((doc_id, _serialize_record(row)))
     collection = firestore_reader.get_collection_path("positions")
     for chunk in _chunked(docs, 400):
         _write_batch(collection, chunk)
@@ -109,7 +122,7 @@ def upsert_trades(records: list[dict[str, Any]]) -> tuple[int, int]:
         external_id = row.get("external_id")
         base = external_id or f"{row.get('trade_date')}_{row.get('ticker')}_{row.get('account_type')}_{idx}"
         doc_id = _safe_doc_id(str(base))
-        docs.append((doc_id, row))
+        docs.append((doc_id, _serialize_record(row)))
     collection = firestore_reader.get_collection_path("trades")
     for chunk in _chunked(docs, 400):
         _write_batch(collection, chunk)
@@ -124,7 +137,7 @@ def upsert_portfolio_snapshots(records: list[dict[str, Any]]) -> tuple[int, int]
         external_id = row.get("external_id")
         base = external_id or f"{row.get('snapshot_date')}_{row.get('account_type')}"
         doc_id = _safe_doc_id(str(base))
-        docs.append((doc_id, row))
+        docs.append((doc_id, _serialize_record(row)))
     collection = firestore_reader.get_collection_path("snapshots")
     for chunk in _chunked(docs, 400):
         _write_batch(collection, chunk)
@@ -138,7 +151,7 @@ def upsert_cash_snapshots(records: list[dict[str, Any]]) -> tuple[int, int]:
     for row in records:
         base = f"{row.get('snapshot_date')}_{row.get('account_type')}"
         doc_id = _safe_doc_id(str(base))
-        docs.append((doc_id, row))
+        docs.append((doc_id, _serialize_record(row)))
     collection = firestore_reader.get_collection_path("cash_snapshots")
     for chunk in _chunked(docs, 400):
         _write_batch(collection, chunk)
@@ -152,7 +165,7 @@ def upsert_valuation_snapshots(records: list[dict[str, Any]]) -> tuple[int, int]
     for row in records:
         base = f"{row.get('valuation_date')}_{row.get('account_type')}"
         doc_id = _safe_doc_id(str(base))
-        docs.append((doc_id, row))
+        docs.append((doc_id, _serialize_record(row)))
     collection = firestore_reader.get_collection_path("valuation_snapshots")
     for chunk in _chunked(docs, 400):
         _write_batch(collection, chunk)
@@ -168,7 +181,7 @@ def upsert_tickers(records: list[dict[str, Any]]) -> tuple[int, int]:
         if not ticker:
             continue
         doc_id = _safe_doc_id(str(ticker))
-        docs.append((doc_id, row))
+        docs.append((doc_id, _serialize_record(row)))
     collection = firestore_reader.get_root_collection_path("tickers")
     for chunk in _chunked(docs, 400):
         _write_batch(collection, chunk)

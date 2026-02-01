@@ -15,9 +15,6 @@ from core.models import AccountType, TickerMaster
 from core.user_gate import require_user
 from core.utils import normalize_ticker
 
-ACCOUNT_OPTIONS = [acct.value for acct in AccountType if acct != AccountType.ALL]
-
-
 require_user()
 st.title("알림톡 파서")
 
@@ -95,12 +92,6 @@ with st.form("alimtalk_parse_form"):
     raw_input = st.text_area("알림톡 원문 (여러 건은 빈 줄로 구분 가능)", height=260)
     default_year = st.number_input("기본 연도", min_value=2000, max_value=2100, value=date.today().year, step=1)
     fallback_date = st.date_input("기본 지급일 (해외/미기재용)", value=date.today())
-    default_acct = st.selectbox(
-        "기본 계좌 구분",
-        options=ACCOUNT_OPTIONS,
-        index=0,
-        help="필요 시 아래 테이블에서 개별 수정 가능합니다.",
-    )
     submitted = st.form_submit_button("파싱")
 
 if submitted:
@@ -140,7 +131,6 @@ if submitted:
                         "grossDividend": msg.gross_dividend,
                         "netDividend": msg.net_dividend,
                         "tax": msg.tax,
-                        "accountType": default_acct,
                         "payDate": pay_date,
                         "fxRate": 1.0 if msg.currency.upper() == "KRW" else None,
                         "krwGross": msg.gross_dividend if msg.currency.upper() == "KRW" else None,
@@ -171,10 +161,6 @@ if rows:
             "grossDividend": st.column_config.NumberColumn("세전 배당", format="%.0f"),
             "netDividend": st.column_config.NumberColumn("세후 배당", format="%.0f"),
             "tax": st.column_config.NumberColumn("원통화 세금", format="%.0f"),
-            "accountType": st.column_config.SelectboxColumn(
-                "계좌 구분",
-                options=ACCOUNT_OPTIONS,
-            ),
             "payDate": st.column_config.DateColumn("지급일"),
             "fxRate": st.column_config.NumberColumn("환율", format="%.0f"),
             "krwGross": st.column_config.NumberColumn("KRW 세전", format="%.0f"),
@@ -305,11 +291,7 @@ if rows:
             net = _to_float(row.get("netDividend"))
             krw_net = _to_float(row.get("krwNet"))
             tax = _to_float(row.get("tax"))
-            account_type_value = row.get("accountType")
-            try:
-                account_type = AccountType(account_type_value)
-            except Exception as exc:
-                raise ValueError(f"{idx}행: 계좌 구분 값이 올바르지 않습니다.") from exc
+            account_type = AccountType.ALL
 
             payloads.append(
                 AlimtalkImportPayload(

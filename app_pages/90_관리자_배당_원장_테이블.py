@@ -8,7 +8,7 @@ from sqlalchemy import desc, select
 
 from core.admin_gate import require_admin
 from core.db import DB_PATH, DB_URL, db_session
-from core.models import DividendEvent, AccountType, TickerMaster
+from core.models import DividendEvent, TickerMaster
 
 require_admin()
 
@@ -16,7 +16,6 @@ st.title("관리자: 배당 원장 테이블")
 st.caption("배당 원장 데이터를 조회하고 아카이브 상태를 직접 조정합니다.")
 
 show_archived = st.checkbox("archived 포함", value=False)
-account_filter = st.selectbox("계좌", ["ALL", AccountType.TAXABLE.value, AccountType.ISA.value])
 
 def fmt_money(x):
     return "" if x is None else f"{x:,.0f}"
@@ -32,9 +31,6 @@ with db_session() as s:
     if not show_archived:
         q = q.where(DividendEvent.archived == False)  # noqa: E712
 
-    if account_filter != "ALL":
-        q = q.where(DividendEvent.account_type == AccountType(account_filter))
-
     rows = s.execute(q).all()
 
     data = []
@@ -49,7 +45,6 @@ with db_session() as s:
             "krwGross(표시)": (fmt_money(ev.krw_gross) + "원") if ev.krw_gross is not None else "",
             "tax": ev.tax,
             "netDividend": ev.net_dividend,
-            "accountType": ev.account_type.value,
             "archived": ev.archived,
         })
 

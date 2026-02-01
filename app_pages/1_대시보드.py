@@ -218,7 +218,7 @@ if show_yearly_summary:
 
 st.divider()
 st.subheader("보유 포지션 현재가 및 평가손익")
-st.caption("계좌 필터가 적용됩니다. 가격은 KR 종목 스냅샷/price_cache 또는 yfinance를 사용하며 6시간 캐시를 활용합니다.")
+st.caption("가격은 KR 종목 스냅샷/price_cache 또는 yfinance를 사용하며 6시간 캐시를 활용합니다.")
 force_price_refresh = st.checkbox(
     "가격 강제 재조회",
     value=False,
@@ -348,7 +348,7 @@ if summary and summary.positions_count > 0:
             st.info("총자산이 0원이어서 비율 차트를 표시할 수 없습니다.")
 
 missing_prices = [
-    f"{val.ticker} ({val.account_type.value})"
+    val.ticker
     for val in valuations
     if val.market_value_krw is None
 ]
@@ -419,7 +419,6 @@ if display_valuations:
         [
             {
                 "종목": f"{val.ticker} ({val.name_ko})" if val.name_ko else val.ticker,
-                "계좌": val.account_type.value,
                 "수량": val.quantity,
                 "평균단가(KRW)": val.avg_buy_price_krw,
                 "총투자원금(KRW)": val.total_cost_krw,
@@ -465,7 +464,7 @@ if display_valuations:
     )
     st.dataframe(styled, use_container_width=True)
 else:
-    st.info("선택한 계좌에 표시할 포지션이 없습니다.")
+    st.info("표시할 포지션이 없습니다.")
 
 summary_all = summaries.get(AccountType.ALL)
 if summary_all and summary_all.positions_count > 0:
@@ -475,7 +474,7 @@ if summary_all and summary_all.positions_count > 0:
         st.success(f"평가액 저장 완료 (inserted {result.inserted}, updated {result.updated})")
 
 st.subheader("총 자산 추이")
-history_label = "전체" if history_account == AccountType.ALL else history_account.value
+history_label = "전체"
 history_df = pd.DataFrame(
     [
         {
@@ -500,7 +499,7 @@ if not history_df.empty or not cash_history_df.empty:
     merged["cash_krw"] = merged["cash_krw"].ffill().fillna(0.0)
     merged["market_value_krw"] = merged["market_value_krw"].ffill().fillna(0.0)
     merged["asset_market_with_cash"] = merged["market_value_krw"] + merged["cash_krw"]
-    st.caption(f"{history_label} 계좌 기준 총 자산 추이 (최근 {len(merged)}포인트)")
+    st.caption(f"{history_label} 기준 총 자산 추이 (최근 {len(merged)}포인트)")
     history_chart = alt.Chart(merged).mark_line().encode(
         x=alt.X("valuation_date:T", title="날짜"),
         y=alt.Y("asset_market_with_cash:Q", title="총 자산", axis=alt.Axis(format=",.0f")),
@@ -511,4 +510,4 @@ if not history_df.empty or not cash_history_df.empty:
     )
     st.altair_chart(history_chart, use_container_width=True)
 else:
-    st.info(f"{history_label} 계좌에 저장된 평가 또는 현금 기록이 없습니다.")
+    st.info(f"{history_label} 기준으로 저장된 평가 또는 현금 기록이 없습니다.")
